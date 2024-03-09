@@ -1,0 +1,4 @@
+*.tif
+*.tif.aux.xml
+*.ipynb*
+__pycache__/
