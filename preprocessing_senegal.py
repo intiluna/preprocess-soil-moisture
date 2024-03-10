@@ -66,22 +66,20 @@ if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_cli
     print("Finish crop and clip...")
 
 # binary crop mask
+binary_mask_path = path_raster_temp/(f"crop_mask_{country_target}_clipped_binary.tif")
+
 if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_clipped_binary.tif").exists():
     crop_mask_clipped_reclassified = (crop_mask_clipped > 0).astype('uint8')
-    crop_mask_clipped_reclassified.rio.to_raster(path_raster_temp/(f"crop_mask_{country_target}_clipped_binary.tif"))
+    crop_mask_clipped_reclassified.rio.to_raster(binary_mask_path)
     print("done binary transformation")
 print("checkpoint after binary transformation...")
 
 # pre process for resample soil moisture
 ## create folfer if not exist
-resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
+#resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
 cropped_sm_folder = (path_raster_temp / f"cropped_sm_{country_target_lower}")
 
-if resample_sm_folder.exists() and resample_sm_folder.is_dir():
-    print("resample sm folder does  exists")
-else:
-    resample_sm_folder.mkdir(parents=True, exist_ok=True)
-    print(f"The folder '{resample_sm_folder}' has been created.")
+
 
 if cropped_sm_folder.exists() and cropped_sm_folder.is_dir():
     print("cropped sm folder does exists and we skip processing")
@@ -92,7 +90,7 @@ else:
     # Require sm to be cropped (not clipped otherwise it wont cover the whole area
     for file in sm_files_sorted:
     
-        out_resample = (resample_sm_folder / f"{country_target}_{file.name}")
+        #out_resample = (resample_sm_folder / f"{country_target}_{file.name}")
         start_time = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"starting crop for SM: {file.name} at {start_time}")
 
@@ -105,27 +103,52 @@ else:
         
         print(f"done crop for {file.name}")
 
+## add condition so resample process is not run if folder exists
 
 # resample sm to match resolution of crop mask
 sm_files_cropped = list(cropped_sm_folder.glob("*.tif"))
 #print(sm_files_clipped[:5])
 crop_mask_cropped_path = path_raster_temp/(f"crop_mask_{country_target}_cropped.tif")
-# Require sm to be cropped (not clipped otherwise it wont cover the whole area)
-for file in sm_files_cropped:
-    
-    out_resample = (resample_sm_folder / f"resampled_{file.name}")
-    start_time = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"starting resample for SM: {file.name} at {start_time}")
-    print(f"input file:{file}")
-    print(f"output file:{out_resample}")
-    ut.align_and_resample_raster(file, crop_mask_cropped_path, out_resample,target_resolution=(0.004464285715000,0.004464285715000))
 
-    #ut.reproj_match(infile = file, match= crop_mask,outfile = out_resample)    
-    print(f"done resample for {file.name}")
+resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
+
+if resample_sm_folder.exists() and resample_sm_folder.is_dir():
+    print("resample sm folder does  exists")
+else:
+    resample_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"The folder '{resample_sm_folder}' has been created.")
+
+    # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
+    for file in sm_files_cropped:
+        out_resample = (resample_sm_folder / f"resampled_{file.name}")
+        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"starting resample for SM: {file.name} at {start_time}")
+        print(f"input file:{file}")
+        print(f"output file:{out_resample}")
+        ut.align_and_resample_raster(file, crop_mask_cropped_path, out_resample,target_resolution=(0.004464285715000,0.004464285715000))
+
+        #ut.reproj_match(infile = file, match= crop_mask,outfile = out_resample)    
+        print(f"done resample for {file.name}")
 
 
 # extract pixels for each soil moisture dekad
 
+raster_path_list = list(resample_sm_folder.glob("*.tif"))
+pixels_sm_folder = (path_raster_temp / f"pixels_sm_{country_target_lower}")
+
+if pixels_sm_folder.exists() and pixels_sm_folder.is_dir():
+    print("pixels sm folder does  exists")
+else:
+    pixels_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"The folder '{pixels_sm_folder}' has been created.")
+
+    stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
+    stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path) # error because of different dimensions
+    # IndexError: boolean index did not match indexed array along dimension 0; dimension is 1008 but corresponding boolean dimension is 982
+    # check time series
+    time_series = stack[:,:1].copy()
+    time_series[time_series == -9.9990000e+03] = np.nan
+    print(time_series[0:3])
 
 # gap fill at pixel level
 

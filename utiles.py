@@ -1,5 +1,9 @@
 from rasterio.warp import reproject, Resampling, calculate_default_transform
 import rasterio
+from osgeo import gdal
+import numpy as np
+import time
+
 
 def test_function(a):
     print(a)
@@ -51,7 +55,7 @@ def reproj_match(infile, match, outfile):
                     dst_crs=dst_crs,
                     resampling=Resampling.nearest)
                 
-from osgeo import gdal
+
 
 def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, target_resolution=(0.01, 0.01), resampling_method=gdal.GRA_Bilinear):
     """
@@ -79,3 +83,31 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
 
     # Close the datasets
     reference_ds = None
+
+def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
+    with rasterio.open(binary_mask_path) as src:
+        mask = src.read(1)
+
+    initial_process_time = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    stack = None
+    for tiff_path in raster_path_list:
+        
+        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"starting extraction from for SM: {tiff_path} at {start_time}")
+        
+        with rasterio.open(tiff_path) as src:
+            array = src.read(1)
+            extract = array[mask==1]  # [3 4]
+            if stack is None:
+                stack = extract.copy()
+            else:
+                stack = np.vstack((stack, extract))
+        print ("done file extraction")
+    
+    end_process_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    total_time = end_process_time - initial_process_time
+    print(f"complete extraction lasted: {total_time}")
+    np.save(stack_path, stack)
+
+    return stack
