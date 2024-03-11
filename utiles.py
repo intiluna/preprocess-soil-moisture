@@ -88,7 +88,7 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
     with rasterio.open(binary_mask_path) as src:
         mask = src.read(1)
 
-    initial_process_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    initial_process_time = time.time()
 
     stack = None
     for tiff_path in raster_path_list:
@@ -105,7 +105,7 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
                 stack = np.vstack((stack, extract))
         print ("done file extraction")
     
-    end_process_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    end_process_time = time.time()
     total_time = end_process_time - initial_process_time
     print(f"complete extraction lasted: {total_time}")
     np.save(stack_path, stack)

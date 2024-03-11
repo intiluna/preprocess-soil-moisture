@@ -171,8 +171,15 @@ else:
 
 # extract pixels for each soil moisture dekad
 
-raster_path_list = list(resample_sm_folder.glob("*.tif"))
+raster_path_list = list(resample_crop_sm_folder.glob("*.tif"))
 pixels_sm_folder = (path_raster_temp / f"pixels_sm_{country_target_lower}")
+
+# sort raster path list
+## Define a custom key function to extract the date from the filename
+get_date_from_path = lambda path: int(path.stem[-8:])
+
+# Sort the list of Path objects based on the date
+raster_path_list_sorted = sorted(raster_path_list, key=get_date_from_path)
 
 if pixels_sm_folder.exists() and pixels_sm_folder.is_dir():
     print("pixels sm folder does  exists")
@@ -181,18 +188,18 @@ else:
     print(f"The folder '{pixels_sm_folder}' has been created.")
 
     stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
-    stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path) # error because of different dimensions
+    stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list_sorted,stack_path) # error because of different dimensions
     # probably works if I clip the crop mask binary layer to match the SM resample raster
     # IndexError: boolean index did not match indexed array along dimension 0; dimension is 1008 but corresponding boolean dimension is 982
     # check time series
-    time_series = stack[:,:1].copy()
-    time_series[time_series == -9.9990000e+03] = np.nan
-    print(time_series[0:3])
+    #time_series = stack[:,:1].copy()
+    #time_series[time_series == -9.9990000e+03] = np.nan
+    #print(time_series[0:3])
 
 # gap fill at pixel level
 
 
-# replace NA with gap filled data
+# replace original data (with NA) with gap filled data
 
 
 # save no-gaps raster files
