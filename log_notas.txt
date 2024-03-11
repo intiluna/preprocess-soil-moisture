@@ -1,0 +1,87 @@
+# pixel extraction
+-se intenta using crop_mask_cropped_clipped_binary vs sm_cropped_resample
+verificamos:
+ --resolution
+ --extent
+ 
+
+
+ >Proceso actual
+ 1.Country vector
+ -Subset to country
+ 2.Crop Mask
+ -CM cropped to country
+ -CM clipped to country
+ -CM clipped to binary
+ 
+ 3.Soil Moisture
+3.A -SM cropped to country
+3.B -SM resampled to CM clipped binary resolution
+ 
+ 4. Pixel extraction
+ -Using CM_clipped_binary & SM_resampled # error because different dimensions
+ 
+ 
+ -------
+>Exploring alternative
+3.A cropped  to
+
+SM cropped to CM_cropped -> SM resampled
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ resampled_senegal_cropped_sm_19781101 #actual # salida actual de resample sm
+ 	Origin = (-17.750000000000000,16.750000000000000)
+ 	Pixel Size = (0.004464285715000,-0.004464285715000)
+ 	Size is 1456, 1008
+ 	Corner Coordinates:
+		Upper Left  ( -17.7500000,  16.7500000) ( 17d45' 0.00"W, 16d45' 0.00"N)
+		Lower Left  ( -17.7500000,  12.2500000) ( 17d45' 0.00"W, 12d15' 0.00"N)
+		Upper Right ( -11.2500000,  16.7500000) ( 11d15' 0.00"W, 16d45' 0.00"N)
+		Lower Right ( -11.2500000,  12.2500000) ( 11d15' 0.00"W, 12d15' 0.00"N)
+		Center      ( -14.5000000,  14.5000000) ( 14d30' 0.00"W, 14d30' 0.00"N)
+	Band 1 Block=1456x1 Type=Float32, ColorInterp=Gray
+
+ 
+ crop_mask_clipped_binary
+ 	Origin = (-17.526785688289969,16.691964276385008)
+	Pixel Size = (0.004464285715000,-0.004464285715000)
+	Size is 1384, 982
+ 	Corner Coordinates:
+		Upper Left  ( -17.5267857,  16.6919643) ( 17d31'36.43"W, 16d41'31.07"N)
+		Lower Left  ( -17.5267857,  12.3080357) ( 17d31'36.43"W, 12d18'28.93"N)
+		Upper Right ( -11.3482143,  16.6919643) ( 11d20'53.57"W, 16d41'31.07"N)
+		Lower Right ( -11.3482143,  12.3080357) ( 11d20'53.57"W, 12d18'28.93"N)
+		Center      ( -14.4375000,  14.5000000) ( 14d26'15.00"W, 14d30' 0.00"N)
+	Band 1 Block=1384x5 Type=Byte, ColorInterp=Gray
+	
+ crop_mask_clipped
+	Size is 1384, 982
+	Origin = (-17.526785688289969,16.691964276385008)
+	Pixel Size = (0.004464285715000,-0.004464285715000)
+	Corner Coordinates:
+		Upper Left  ( -17.5267857,  16.6919643) ( 17d31'36.43"W, 16d41'31.07"N)
+		Lower Left  ( -17.5267857,  12.3080357) ( 17d31'36.43"W, 12d18'28.93"N)
+		Upper Right ( -11.3482143,  16.6919643) ( 11d20'53.57"W, 16d41'31.07"N)
+		Lower Right ( -11.3482143,  12.3080357) ( 11d20'53.57"W, 12d18'28.93"N)
+		Center      ( -14.4375000,  14.5000000) ( 14d26'15.00"W, 14d30' 0.00"N)
+	Band 1 Block=1384x5 Type=Byte, ColorInterp=Gray
+
+crop_mask_cropped
+	Origin = (-17.531249974004957,16.696428562100003)
+	Pixel Size = (0.004464285715000,-0.004464285715000)
+	Size is 1386, 984
+	Corner Coordinates:
+		Upper Left  ( -17.5312500,  16.6964286) ( 17d31'52.50"W, 16d41'47.14"N)
+		Lower Left  ( -17.5312500,  12.3035714) ( 17d31'52.50"W, 12d18'12.86"N)
+		Upper Right ( -11.3437500,  16.6964286) ( 11d20'37.50"W, 16d41'47.14"N)
+		Lower Right ( -11.3437500,  12.3035714) ( 11d20'37.50"W, 12d18'12.86"N)
+		Center      ( -14.4375000,  14.5000000) ( 14d26'15.00"W, 14d30' 0.00"N)
+	Band 1 Block=1386x5 Type=Byte, ColorInterp=Gray
+ 
+ 
+ 

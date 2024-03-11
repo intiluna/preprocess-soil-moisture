@@ -54,7 +54,7 @@ countries = gpd.read_file(path_vector_countries/("gaul0_asap.shp"))
 country_x = countries.loc[countries['adm0_name'] == country_target]
 print(country_x.head())
 
-# Crop and clip crop_mask based on country_x
+# Crop and clip crop_mask based on country_target
 if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_cropped.tif").exists():
     print("Start crop and clip...")
     crop_mask_cropped = crop_mask.rio.clip_box(*country_x.total_bounds)
@@ -131,6 +131,44 @@ else:
         print(f"done resample for {file.name}")
 
 
+# tune sm to crop mask binary extent
+        
+sm_files_resampled = list(resample_sm_folder.glob("*.tif"))
+
+# create folder
+resample_crop_sm_folder = (path_raster_temp / f"resample_crop_sm_{country_target_lower}")
+
+if resample_crop_sm_folder.exists() and resample_crop_sm_folder.is_dir():
+    print("resample-crop sm folder does  exists")
+else:
+    resample_crop_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"The folder '{resample_crop_sm_folder}' has been created.")
+
+    mask_binary = rxr.open_rasterio(binary_mask_path)
+    print(f"mask_binary dimensions: {mask_binary.sizes}")
+
+    # get bounding box of crop mask clipped
+
+    #cm_minx=mask_binary.x.min().item()
+    #cm_miny=mask_binary.y.min().item()
+    #cm_maxx=mask_binary.x.max().item()
+    #cm_maxy=mask_binary.x.max().item()
+    
+    for file in sm_files_resampled:
+        print(file)
+        out_resample_crop = (resample_crop_sm_folder / f"cropped_{file.name}")
+        file_sm = rxr.open_rasterio(file)
+        print(file_sm.sizes)
+        sm_crop = file_sm.rio.clip_box( minx= mask_binary.x.min().item(),
+                                        miny= mask_binary.y.min().item(),
+                                        maxx= mask_binary.x.max().item(),
+                                        maxy= mask_binary.y.max().item()
+                                       )
+        sm_crop.rio.to_raster(out_resample_crop)
+        print(f"done resample for {file.name}")
+
+
+
 # extract pixels for each soil moisture dekad
 
 raster_path_list = list(resample_sm_folder.glob("*.tif"))
@@ -144,6 +182,7 @@ else:
 
     stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
     stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path) # error because of different dimensions
+    # probably works if I clip the crop mask binary layer to match the SM resample raster
     # IndexError: boolean index did not match indexed array along dimension 0; dimension is 1008 but corresponding boolean dimension is 982
     # check time series
     time_series = stack[:,:1].copy()
