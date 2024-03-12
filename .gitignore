@@ -2,3 +2,4 @@
 *.tif.aux.xml
 *.ipynb*
 __pycache__/
+*.npy

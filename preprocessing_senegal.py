@@ -9,6 +9,14 @@ import geopandas as gpd
 from pyproj import CRS
 import utiles as ut
 import time
+import subprocess
+import numpy as np
+#gap fill
+import pandas as pd
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from statsmodels.tsa.seasonal import seasonal_decompose
+
 
 print("Starting preprocessing...step 1")
 
@@ -181,26 +189,94 @@ get_date_from_path = lambda path: int(path.stem[-8:])
 # Sort the list of Path objects based on the date
 raster_path_list_sorted = sorted(raster_path_list, key=get_date_from_path)
 
+stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
+
 if pixels_sm_folder.exists() and pixels_sm_folder.is_dir():
     print("pixels sm folder does  exists")
 else:
     pixels_sm_folder.mkdir(parents=True, exist_ok=True)
     print(f"The folder '{pixels_sm_folder}' has been created.")
 
-    stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
+    
     stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list_sorted,stack_path) # error because of different dimensions
-    # probably works if I clip the crop mask binary layer to match the SM resample raster
-    # IndexError: boolean index did not match indexed array along dimension 0; dimension is 1008 but corresponding boolean dimension is 982
-    # check time series
-    #time_series = stack[:,:1].copy()
-    #time_series[time_series == -9.9990000e+03] = np.nan
-    #print(time_series[0:3])
+    
+    
 
-# gap fill at pixel level
+# gap fill at pixel level ----------------------------------------------------------
+    
+stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+if stack_filled_path.exists():
+    print("gap filled array exists")
+else:
+    print("gap filled array starting")
+
+    
+    pixel_data = np.load(stack_path)
+
+    tsf = pixel_data[:].copy()
+
+    gp_process_start = time.time()
+    
+    for pixel in range(pixel_data.shape[1]):
+    #for pixel in range(3):
+        print(f"pixel:{pixel}")
+        
+
+        # Extract time series for the selected pixel
+        time_series = pixel_data[:,pixel:pixel+1].copy()
+        time_series[time_series == -9.9990000e+03] = np.nan
+
+        # prepare data for gap filling
+        df = pd.DataFrame()
+        df["y"]=time_series.ravel()
+
+        # flag and shape
+        tidy_dataset = ut.get_data(df)
+
+        # get decomposition
+        ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
+
+        # GP estimates
+        kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
+        #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
+        #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
+        
+        gapfilled_dataset, kernel = ut.gapfilling_gp(
+                                                dataset=decomposed_dataset,
+                                                n_restarts_optimizer=0,
+                                                kernel=kernel1
+                                                )
+
+        #original = gapfilled_dataset["y"]
+        #filled_01 = gapfilled_dataset["y_hat_01"]
+        filled_02 = gapfilled_dataset["y_hat_02"] 
+        #flag = gapfilled_dataset["flag"]
+        
+        #replace values in tsf (time series filled)
+        tsf[:, pixel:pixel+1] = filled_02.values.reshape(-1, 1)
+        #check = tsf[:, pixel:pixel+1]
+
+        # tsf[:, pixel:pixel+1] = filled_02.values[:tsf.shape[0]].reshape(-1, 1)
+        # check = tsf[:, 0:pixel+1]
+    # save no-gaps pixels array
+    stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+    np.save(stack_filled_path, tsf)
+    gp_process_end = time.time()
+    total_time = gp_process_end - gp_process_start
+
+    print(f"Total GP gap fill process took:{total_time}")
+
+# Wait for 60 seconds
+time.sleep(60)
+
+# Shut down the computer
+subprocess.run(['sudo', 'shutdown', '-h', 'now'])
 
 
-# replace original data (with NA) with gap filled data
+
+    
 
 
-# save no-gaps raster files
+
+
 

@@ -17,16 +17,21 @@ verificamos:
  3.Soil Moisture
 3.A -SM cropped to country
 3.B -SM resampled to CM clipped binary resolution
+3.C  3B cropped to CM_clipped_binary
  
  4. Pixel extraction
- -Using CM_clipped_binary & SM_resampled # error because different dimensions
- 
- 
- -------
->Exploring alternative
-3.A cropped  to
+ -Using CM_clipped_binary & SM_resampled # ok
 
-SM cropped to CM_cropped -> SM resampled
+ 5. Gap filled Array
+ -good function
+ -error with pixel 117 for Senegal
+ 
+ 
+
+
+
+
+
  
  
  

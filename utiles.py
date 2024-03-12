@@ -3,6 +3,12 @@ import rasterio
 from osgeo import gdal
 import numpy as np
 import time
+import pandas as pd
+#gap fill
+import pandas as pd
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 
 def test_function(a):
@@ -111,3 +117,93 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
     np.save(stack_path, stack)
 
     return stack
+
+# functions for gap filling---------
+# Apply gap fill as a function
+def get_data(dataset: pd.DataFrame) -> pd.DataFrame:
+    X = np.arange(0, dataset.shape[0]).reshape(-1, 1)
+    y = dataset["y"].values
+
+    # Fill missing values with NaN
+    #y[y == -9999] = np.nan
+
+    # Simple linear interpolation to fill missing values
+    dataset = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
+    y_hat_01 = pd.Series(y).interpolate(method='linear').values
+    dataset['y_hat_01'] = dataset['y'].interpolate(method='linear')
+
+    return dataset
+
+def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.DataFrame:
+    ts_decomposition = seasonal_decompose(
+        dataset['y_hat_01'],
+        model='additive',
+        period=period,
+        extrapolate_trend='freq'
+    )
+
+    # Time series decomposition    
+    ts_residual = dataset['y_hat_01'] - ts_decomposition.seasonal - ts_decomposition.trend
+    dataset["residual"] = ts_residual
+    dataset["trend"] = ts_decomposition.trend
+    dataset["seasonal"] = ts_decomposition.seasonal
+
+    return ts_decomposition, dataset
+
+
+def gapfilling_gp(
+    dataset: pd.DataFrame,
+    n_restarts_optimizer: int=0,
+    kernel: RBF = C(1.0, (1e-3, 1e3))
+) -> pd.DataFrame:
+    # Get the missing values
+    missing_indices = np.where(dataset["flag"])[0]
+    
+    # Obtain the residuals without the missing values
+    X = np.delete(dataset["X"].values, missing_indices).reshape(-1, 1)
+    y = np.delete(dataset["residual"].values, missing_indices)
+    ynorm = (y - np.mean(y)) / np.std(y) # to make the GP more stable
+
+
+    # Fit the GP
+    gp = GaussianProcessRegressor(
+        kernel=kernel,
+        optimizer="fmin_l_bfgs_b",
+        n_restarts_optimizer=n_restarts_optimizer,
+        random_state=42
+    )
+    gp.fit(X, ynorm)
+
+    # Predict missing values
+    y_pred, sigma = gp.predict(
+        dataset["X"][missing_indices].values.reshape(-1, 1),
+        return_std=True
+    )
+
+    # Transform the predicted values back to the original scale
+    y_pred = y_pred * np.std(y) + np.mean(y)
+    sigma = sigma * np.std(y)
+
+    # Transform the residuals to real values
+    y_pred = (
+        y_pred + 
+        dataset["seasonal"].values[missing_indices] +
+        dataset["trend"].values[missing_indices]
+    )
+    
+    # Copy the original dataset and fill the missing values
+    dataset["y_hat_02"] = dataset["y_hat_01"].copy()
+    
+    # Cast y_pred to the expected dtype
+    y_pred_casted = y_pred.astype(np.float32)
+    
+    dataset.loc[missing_indices, "y_hat_02"] = y_pred_casted
+    
+
+    
+    dataset["sigma"] = 0.0000
+    #dataset["sigma"][missing_indices] = sigma
+    dataset.loc[missing_indices, "sigma"] = sigma
+
+    return dataset, gp.kernel_
+# end of gap filling----------------
