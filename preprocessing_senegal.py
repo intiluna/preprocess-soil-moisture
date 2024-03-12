@@ -213,7 +213,9 @@ else:
     
     pixel_data = np.load(stack_path)
 
-    tsf = pixel_data[:].copy()
+    #tsf = pixel_data[:].copy()
+    tsf=np.ones(pixel_data.shape)
+    pixel_no_gap_filled=[]
 
     gp_process_start = time.time()
     
@@ -232,6 +234,11 @@ else:
 
         # flag and shape
         tidy_dataset = ut.get_data(df)
+
+        if tidy_dataset['y_hat_01'].isnull().any():
+            print(f"Skipping decomposition for pixel:{pixel} with missing values.")
+            pixel_no_gap_filled.append(pixel)
+            continue  # Skip to the next iteration
 
         # get decomposition
         ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
@@ -261,6 +268,13 @@ else:
     # save no-gaps pixels array
     stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
     np.save(stack_filled_path, tsf)
+
+    # Save pixel_no_gap_filled as a CSV file
+    df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
+    #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
+    df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_no_gapfill.csv"), index=False)
+
+
     gp_process_end = time.time()
     total_time = gp_process_end - gp_process_start
 
