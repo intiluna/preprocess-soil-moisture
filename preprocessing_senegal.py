@@ -62,7 +62,7 @@ countries = gpd.read_file(path_vector_countries/("gaul0_asap.shp"))
 country_x = countries.loc[countries['adm0_name'] == country_target]
 print(country_x.head())
 
-# Crop and clip crop_mask based on country_target
+# 1.0 Crop and clip crop_mask based on country_target
 if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_cropped.tif").exists():
     print("Start crop and clip...")
     crop_mask_cropped = crop_mask.rio.clip_box(*country_x.total_bounds)
@@ -82,12 +82,63 @@ if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_cli
     print("done binary transformation")
 print("checkpoint after binary transformation...")
 
-# pre process for resample soil moisture
+# 2.0 pre process: SM -Crop to CM-binary
 ## create folfer if not exist
-#resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
+# cropped_sm_folder = (path_raster_temp / f"cropped_sm_{country_target_lower}")
+
+# if cropped_sm_folder.exists() and cropped_sm_folder.is_dir():
+#     print("cropped sm folder does exists and we skip processing")
+# else:
+#     cropped_sm_folder.mkdir(parents=True, exist_ok=True)
+#     print(f"The folder '{cropped_sm_folder}' has been created.")
+
+#     # Require sm to be cropped (not clipped otherwise it wont cover the whole area
+#     for file in sm_files_sorted:
+    
+#         #out_resample = (resample_sm_folder / f"{country_target}_{file.name}")
+#         start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+#         print(f"starting crop for SM: {file.name} at {start_time}")
+
+        
+#         sm_file = rxr.open_rasterio(file)
+#         sm_cropped = sm_file.rio.clip_box(*country_x.total_bounds)
+#         #sm_clipped = sm_cropped.rio.clip(country_x['geometry'])
+#         sm_cropped.rio.to_raster(cropped_sm_folder/(f"{country_target_lower}_cropped_{file.name}"))
+            
+        
+#         print(f"done crop for {file.name}")
+
+
+# # resample sm to match resolution of crop mask
+# sm_files_cropped = list(cropped_sm_folder.glob("*.tif"))
+# #print(sm_files_clipped[:5])
+# crop_mask_cropped_path = path_raster_temp/(f"crop_mask_{country_target}_cropped.tif")
+
+# resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
+
+# if resample_sm_folder.exists() and resample_sm_folder.is_dir():
+#     print("resample sm folder does  exists")
+# else:
+#     resample_sm_folder.mkdir(parents=True, exist_ok=True)
+#     print(f"The folder '{resample_sm_folder}' has been created.")
+
+#     # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
+#     for file in sm_files_cropped:
+#         out_resample = (resample_sm_folder / f"resampled_{file.name}")
+#         start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+#         print(f"starting resample for SM: {file.name} at {start_time}")
+#         print(f"input file:{file}")
+#         print(f"output file:{out_resample}")
+#         ut.align_and_resample_raster(file, crop_mask_cropped_path, out_resample,target_resolution=(0.004464285715000,0.004464285715000))
+
+#         #ut.reproj_match(infile = file, match= crop_mask,outfile = out_resample)    
+#         print(f"done resample for {file.name}")
+
+
+#2.0 Crop SM to crop mask binary extent
+        
+# create folder
 cropped_sm_folder = (path_raster_temp / f"cropped_sm_{country_target_lower}")
-
-
 
 if cropped_sm_folder.exists() and cropped_sm_folder.is_dir():
     print("cropped sm folder does exists and we skip processing")
@@ -95,76 +146,13 @@ else:
     cropped_sm_folder.mkdir(parents=True, exist_ok=True)
     print(f"The folder '{cropped_sm_folder}' has been created.")
 
-    # Require sm to be cropped (not clipped otherwise it wont cover the whole area
-    for file in sm_files_sorted:
-    
-        #out_resample = (resample_sm_folder / f"{country_target}_{file.name}")
-        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"starting crop for SM: {file.name} at {start_time}")
-
-        
-        sm_file = rxr.open_rasterio(file)
-        sm_cropped = sm_file.rio.clip_box(*country_x.total_bounds)
-        #sm_clipped = sm_cropped.rio.clip(country_x['geometry'])
-        sm_cropped.rio.to_raster(cropped_sm_folder/(f"{country_target_lower}_cropped_{file.name}"))
-            
-        
-        print(f"done crop for {file.name}")
-
-## add condition so resample process is not run if folder exists
-
-# resample sm to match resolution of crop mask
-sm_files_cropped = list(cropped_sm_folder.glob("*.tif"))
-#print(sm_files_clipped[:5])
-crop_mask_cropped_path = path_raster_temp/(f"crop_mask_{country_target}_cropped.tif")
-
-resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
-
-if resample_sm_folder.exists() and resample_sm_folder.is_dir():
-    print("resample sm folder does  exists")
-else:
-    resample_sm_folder.mkdir(parents=True, exist_ok=True)
-    print(f"The folder '{resample_sm_folder}' has been created.")
-
-    # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
-    for file in sm_files_cropped:
-        out_resample = (resample_sm_folder / f"resampled_{file.name}")
-        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"starting resample for SM: {file.name} at {start_time}")
-        print(f"input file:{file}")
-        print(f"output file:{out_resample}")
-        ut.align_and_resample_raster(file, crop_mask_cropped_path, out_resample,target_resolution=(0.004464285715000,0.004464285715000))
-
-        #ut.reproj_match(infile = file, match= crop_mask,outfile = out_resample)    
-        print(f"done resample for {file.name}")
-
-
-# tune sm to crop mask binary extent
-        
-sm_files_resampled = list(resample_sm_folder.glob("*.tif"))
-
-# create folder
-resample_crop_sm_folder = (path_raster_temp / f"resample_crop_sm_{country_target_lower}")
-
-if resample_crop_sm_folder.exists() and resample_crop_sm_folder.is_dir():
-    print("resample-crop sm folder does  exists")
-else:
-    resample_crop_sm_folder.mkdir(parents=True, exist_ok=True)
-    print(f"The folder '{resample_crop_sm_folder}' has been created.")
-
     mask_binary = rxr.open_rasterio(binary_mask_path)
     print(f"mask_binary dimensions: {mask_binary.sizes}")
 
-    # get bounding box of crop mask clipped
+    # Require sm to be cropped (not clipped otherwise it wont cover the whole area
+    for file in sm_files_sorted:
 
-    #cm_minx=mask_binary.x.min().item()
-    #cm_miny=mask_binary.y.min().item()
-    #cm_maxx=mask_binary.x.max().item()
-    #cm_maxy=mask_binary.x.max().item()
-    
-    for file in sm_files_resampled:
-        print(file)
-        out_resample_crop = (resample_crop_sm_folder / f"cropped_{file.name}")
+        out_resample_crop = (cropped_sm_folder / f"cropped_{file.name}")
         file_sm = rxr.open_rasterio(file)
         print(file_sm.sizes)
         sm_crop = file_sm.rio.clip_box( minx= mask_binary.x.min().item(),
@@ -179,14 +167,14 @@ else:
 
 # extract pixels for each soil moisture dekad
 
-raster_path_list = list(resample_crop_sm_folder.glob("*.tif"))
+raster_path_list = list(cropped_sm_folder.glob("*.tif"))
 pixels_sm_folder = (path_raster_temp / f"pixels_sm_{country_target_lower}")
 
-# sort raster path list
-## Define a custom key function to extract the date from the filename
+# # sort raster path list
+# ## Define a custom key function to extract the date from the filename
 get_date_from_path = lambda path: int(path.stem[-8:])
 
-# Sort the list of Path objects based on the date
+# # Sort the list of Path objects based on the date
 raster_path_list_sorted = sorted(raster_path_list, key=get_date_from_path)
 
 stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
@@ -198,93 +186,89 @@ else:
     print(f"The folder '{pixels_sm_folder}' has been created.")
 
     
-    stack = ut.extract_pixels_using_mask(binary_mask_path,raster_path_list_sorted,stack_path) # error because of different dimensions
+    stack = ut.extract_all_pixels(raster_path_list_sorted,stack_path) 
     
     
 
-# gap fill at pixel level ----------------------------------------------------------
-    
-stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-if stack_filled_path.exists():
-    print("gap filled array exists")
-else:
-    print("gap filled array starting")
+# # gap fill at pixel level ----------------------------------------------------------
+
+# stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+# if stack_filled_path.exists():
+#     print("gap filled array exists")
+# else:
+#     print("gap filled array starting")
 
     
-    pixel_data = np.load(stack_path)
+# pixel_data = np.load(stack_path)
 
-    #tsf = pixel_data[:].copy()
-    tsf=np.ones(pixel_data.shape)
-    pixel_no_gap_filled=[]
+# #tsf = pixel_data[:].copy()
+# tsf=np.ones(pixel_data.shape)
+# pixel_no_gap_filled=[]
 
-    gp_process_start = time.time()
-    
-    for pixel in range(pixel_data.shape[1]):
-    #for pixel in range(3):
-        print(f"pixel:{pixel}")
-        
+# gp_process_start = time.time()
 
-        # Extract time series for the selected pixel
-        time_series = pixel_data[:,pixel:pixel+1].copy()
-        time_series[time_series == -9.9990000e+03] = np.nan
-
-        # prepare data for gap filling
-        df = pd.DataFrame()
-        df["y"]=time_series.ravel()
-
-        # flag and shape
-        tidy_dataset = ut.get_data(df)
-
-        if tidy_dataset['y_hat_01'].isnull().any():
-            print(f"Skipping decomposition for pixel:{pixel} with missing values.")
-            pixel_no_gap_filled.append(pixel)
-            continue  # Skip to the next iteration
-
-        # get decomposition
-        ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
-
-        # GP estimates
-        kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
-        #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
-        #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
-        
-        gapfilled_dataset, kernel = ut.gapfilling_gp(
-                                                dataset=decomposed_dataset,
-                                                n_restarts_optimizer=0,
-                                                kernel=kernel1
-                                                )
-
-        #original = gapfilled_dataset["y"]
-        #filled_01 = gapfilled_dataset["y_hat_01"]
-        filled_02 = gapfilled_dataset["y_hat_02"] 
-        #flag = gapfilled_dataset["flag"]
-        
-        #replace values in tsf (time series filled)
-        tsf[:, pixel:pixel+1] = filled_02.values.reshape(-1, 1)
-        #check = tsf[:, pixel:pixel+1]
-
-        # tsf[:, pixel:pixel+1] = filled_02.values[:tsf.shape[0]].reshape(-1, 1)
-        # check = tsf[:, 0:pixel+1]
-    # save no-gaps pixels array
-    stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-    np.save(stack_filled_path, tsf)
-
-    # Save pixel_no_gap_filled as a CSV file
-    df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
-    #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
-    df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_no_gapfill.csv"), index=False)
+# for pixel in range(pixel_data.shape[1]):
+# #for pixel in range(3):
+#     print(f"pixel:{pixel}")
 
 
-    gp_process_end = time.time()
-    total_time = gp_process_end - gp_process_start
+#     # Extract time series for the selected pixel
+#     time_series = pixel_data[:,pixel:pixel+1].copy()
+#     time_series[time_series == -9.9990000e+03] = np.nan
 
-    print(f"Total GP gap fill process took:{total_time}")
+#     # prepare data for gap filling
+#     df = pd.DataFrame()
+#     df["y"]=time_series.ravel()
+
+#     # flag and shape
+#     tidy_dataset = ut.get_data(df)
+
+#     if tidy_dataset['y_hat_01'].isnull().any():
+#         print(f"Skipping decomposition for pixel:{pixel} with missing values.")
+#         pixel_no_gap_filled.append(pixel)
+#         continue  # Skip to the next iteration
+
+#     # get decomposition
+#     ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
+
+#     # GP estimates
+#     kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
+#     #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
+#     #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
+
+#     gapfilled_dataset, kernel = ut.gapfilling_gp(
+#                                             dataset=decomposed_dataset,
+#                                             n_restarts_optimizer=0,
+#                                             kernel=kernel1
+#                                             )
+
+# #         #original = gapfilled_dataset["y"]
+# #         #filled_01 = gapfilled_dataset["y_hat_01"]
+#     filled_02 = gapfilled_dataset["y_hat_02"] 
+# #         #flag = gapfilled_dataset["flag"]
+
+# #         #replace values in tsf (time series filled)
+#     tsf[:, pixel:pixel+1] = filled_02.values.reshape(-1, 1)
+# # save no-gaps pixels array
+# stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+# np.save(stack_filled_path, tsf)
+
+#     # Save pixel_no_gap_filled as a CSV file
+# df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
+#  #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
+# df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_no_gapfill.csv"), index=False)
+
+
+# gp_process_end = time.time()
+# total_time = gp_process_end - gp_process_start
+
+# print(f"Total GP gap fill process took:{total_time}")
 
 # Wait for 60 seconds
-time.sleep(60)
+#time.sleep(60)
 
 # Shut down the computer
-subprocess.run(['sudo', 'shutdown', '-h', 'now'])
+#subprocess.run(['sudo', 'shutdown', '-h', 'now'])
 
 
 

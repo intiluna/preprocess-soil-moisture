@@ -118,6 +118,31 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
 
     return stack
 
+def extract_all_pixels(raster_path_list,stack_path):
+    initial_process_time = time.time()
+
+    stack = None
+    for i, tiff_path in enumerate(raster_path_list):
+        
+        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"starting extraction from for SM: {tiff_path} at {start_time}")
+        
+        with rasterio.open(tiff_path) as src:
+            array = src.read(1)
+            #extract = array[mask==1]  # [3 4]
+            if stack is None:
+                stack = np.empty((len(raster_path_list), array.shape[0], array.shape[1]))
+            else:
+                stack[i, :, :] = array
+        print ("done file extraction")
+    
+    end_process_time = time.time()
+    total_time = end_process_time - initial_process_time
+    print(f"complete extraction lasted: {total_time}")
+    np.save(stack_path, stack)
+
+    return stack
+
 # functions for gap filling---------
 # Apply gap fill as a function
 def get_data(dataset: pd.DataFrame) -> pd.DataFrame:
