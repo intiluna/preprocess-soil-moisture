@@ -190,7 +190,7 @@ else:
     
     
 
-# # gap fill at pixel level ----------------------------------------------------------
+# gap fill at pixel level ----------------------------------------------------------
 
 stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
 if stack_filled_path.exists():
@@ -254,7 +254,7 @@ else:
 
     # save no-gaps pixels array
     stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-    pixel_data[pixel_data == 1] = -9999.0
+    pixel_data[pixel_data == 1.0] = -9999.0
     np.save(stack_filled_path, tsf)
 
         # Save pixel_no_gap_filled as a CSV file
@@ -267,6 +267,49 @@ else:
     total_time = gp_process_end - gp_process_start
 
     print(f"Total GP gap fill process took:{total_time}")
+
+
+# Create raster tif files using gap filled pixel stack
+
+# Paths
+gap_filled_stack_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+    
+gap_filled_sm_folder = path_raster_temp/(f"gp_croppped_sm_{country_target_lower}")
+if gap_filled_sm_folder.exists() and gap_filled_sm_folder.is_dir():
+    print("gap filled raster folder exists and we skip processing")
+else:
+    gap_filled_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"Gap filled raster folder {gap_filled_sm_folder} has been created")
+
+    # Load the gap filled pixel stack
+    pixel_data = np.load(gap_filled_stack_path)
+
+    start_process = time.time()
+        
+    # Open each original raster file and replace the array with the corresponding slice from pixel_data
+    for i, original_raster_path in enumerate(raster_path_list_sorted, start=0):
+        # Load the replacement data for the current raster
+        replacement_data = pixel_data[i, :, :]  # Indexing starts from 0 in arrays, but from 1 in raster names
+
+        # Open the original raster file for reading
+        with rasterio.open(original_raster_path) as src:
+            
+            # Create the output raster file
+            filename = original_raster_path.name
+            #print(filename)
+            output_path = gap_filled_sm_folder/(f'gp_{filename}')
+
+            # Write the replacement data to the new raster file
+            with rasterio.open(output_path, 'w', **src.profile) as dst:
+                dst.write(replacement_data, 1)  # Writing the replacement data to the first band
+    end_process = time.time()
+    total_time = end_process - start_process
+
+    print(f"Total write gap fill tif process took:{total_time}") 
+
+
+
+
 
 # Wait for 60 seconds
 #time.sleep(60)
