@@ -192,77 +192,81 @@ else:
 
 # # gap fill at pixel level ----------------------------------------------------------
 
-# stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-# if stack_filled_path.exists():
-#     print("gap filled array exists")
-# else:
-#     print("gap filled array starting")
+stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+if stack_filled_path.exists():
+    print("gap filled array exists and we skip processing")
+else:
+    print("gap filled array starting")
 
     
-# pixel_data = np.load(stack_path)
+    pixel_data = np.load(stack_path)
+    pixel_data[pixel_data == -9999.0] = np.nan
 
-# #tsf = pixel_data[:].copy()
-# tsf=np.ones(pixel_data.shape)
-# pixel_no_gap_filled=[]
+    px = pixel_data.shape[1]
+    py = pixel_data.shape[2]
 
-# gp_process_start = time.time()
+    #tsf = pixel_data[:].copy()
+    tsf=np.ones(pixel_data.shape)
+    pixel_no_gap_filled=[]
 
-# for pixel in range(pixel_data.shape[1]):
-# #for pixel in range(3):
-#     print(f"pixel:{pixel}")
-
-
-#     # Extract time series for the selected pixel
-#     time_series = pixel_data[:,pixel:pixel+1].copy()
-#     time_series[time_series == -9.9990000e+03] = np.nan
-
-#     # prepare data for gap filling
-#     df = pd.DataFrame()
-#     df["y"]=time_series.ravel()
-
-#     # flag and shape
-#     tidy_dataset = ut.get_data(df)
-
-#     if tidy_dataset['y_hat_01'].isnull().any():
-#         print(f"Skipping decomposition for pixel:{pixel} with missing values.")
-#         pixel_no_gap_filled.append(pixel)
-#         continue  # Skip to the next iteration
-
-#     # get decomposition
-#     ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
-
-#     # GP estimates
-#     kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
-#     #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
-#     #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
-
-#     gapfilled_dataset, kernel = ut.gapfilling_gp(
-#                                             dataset=decomposed_dataset,
-#                                             n_restarts_optimizer=0,
-#                                             kernel=kernel1
-#                                             )
-
-# #         #original = gapfilled_dataset["y"]
-# #         #filled_01 = gapfilled_dataset["y_hat_01"]
-#     filled_02 = gapfilled_dataset["y_hat_02"] 
-# #         #flag = gapfilled_dataset["flag"]
-
-# #         #replace values in tsf (time series filled)
-#     tsf[:, pixel:pixel+1] = filled_02.values.reshape(-1, 1)
-# # save no-gaps pixels array
-# stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-# np.save(stack_filled_path, tsf)
-
-#     # Save pixel_no_gap_filled as a CSV file
-# df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
-#  #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
-# df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_no_gapfill.csv"), index=False)
+    gp_process_start = time.time()
 
 
-# gp_process_end = time.time()
-# total_time = gp_process_end - gp_process_start
+    for x in range(px):
+        
+        for y in range(py):
+        #for y in range(3):#
+            print(f"pixel_x:{x},pixel_y:{y}")
+            
+            time_serie = pixel_data[:, x, y]
+            tidy_dataset = ut.get_data(time_serie)
 
-# print(f"Total GP gap fill process took:{total_time}")
+            #print(tidy_dataset.head())
+            
+            if tidy_dataset['y_hat_01'].isnull().any():
+                print(f"Skipping decomposition for pixel:{(x,y)} with missing values.")
+                pixel_no_gap_filled.append((x,y))
+                continue  # Skip to the next iteration
+            # get decomposition
+            ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
+        
+            # GP estimates
+            kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
+            #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
+            #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
+            
+            gapfilled_dataset, kernel = ut.gapfilling_gp(
+                                                    dataset=decomposed_dataset,
+                                                    n_restarts_optimizer=0,
+                                                    kernel=kernel1
+                                                    )
+        
+            #original = gapfilled_dataset["y"]
+            #filled_01 = gapfilled_dataset["y_hat_01"]
+            filled_02 = gapfilled_dataset["y_hat_02"] 
+            #flag = gapfilled_dataset["flag"]
+            
+            #replace values in tsf (time series filled)
+            #tsf[:, x, y] = filled_02.values.reshape(-1, 1)
+            tsf[:, x, y] = filled_02.values.reshape(-1)
+
+
+
+    # save no-gaps pixels array
+    stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+    pixel_data[pixel_data == 1] = -9999.0
+    np.save(stack_filled_path, tsf)
+
+        # Save pixel_no_gap_filled as a CSV file
+    df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
+    #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
+    df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_gapfill.csv"), index=False)
+
+
+    gp_process_end = time.time()
+    total_time = gp_process_end - gp_process_start
+
+    print(f"Total GP gap fill process took:{total_time}")
 
 # Wait for 60 seconds
 #time.sleep(60)

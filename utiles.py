@@ -144,19 +144,21 @@ def extract_all_pixels(raster_path_list,stack_path):
 
 # functions for gap filling---------
 # Apply gap fill as a function
-def get_data(dataset: pd.DataFrame) -> pd.DataFrame:
-    X = np.arange(0, dataset.shape[0]).reshape(-1, 1)
-    y = dataset["y"].values
+def get_data(time_serie: np.ndarray) -> pd.DataFrame:
+    df = pd.DataFrame()
+    df["y"]=time_serie.ravel()
+    X = np.arange(0, df.shape[0]).reshape(-1, 1)
+    y = df["y"].values
 
     # Fill missing values with NaN
     #y[y == -9999] = np.nan
 
     # Simple linear interpolation to fill missing values
-    dataset = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
+    df = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
     y_hat_01 = pd.Series(y).interpolate(method='linear').values
-    dataset['y_hat_01'] = dataset['y'].interpolate(method='linear')
+    df['y_hat_01'] = df['y'].interpolate(method='linear')
 
-    return dataset
+    return df
 
 def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.DataFrame:
     ts_decomposition = seasonal_decompose(
