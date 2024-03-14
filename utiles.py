@@ -132,8 +132,7 @@ def extract_all_pixels(raster_path_list,stack_path):
             #extract = array[mask==1]  # [3 4]
             if stack is None:
                 stack = np.empty((len(raster_path_list), array.shape[0], array.shape[1]))
-            else:
-                stack[i, :, :] = array
+            stack[i, :, :] = array
         print ("done file extraction")
     
     end_process_time = time.time()

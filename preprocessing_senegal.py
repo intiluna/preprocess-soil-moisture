@@ -180,7 +180,7 @@ raster_path_list_sorted = sorted(raster_path_list, key=get_date_from_path)
 stack_path = pixels_sm_folder/(f"{country_target_lower}_original_pixel_stack.npy")
 
 if pixels_sm_folder.exists() and pixels_sm_folder.is_dir():
-    print("pixels sm folder does  exists")
+    print("pixels sm folder does  exists and we skip processing")
 else:
     pixels_sm_folder.mkdir(parents=True, exist_ok=True)
     print(f"The folder '{pixels_sm_folder}' has been created.")
