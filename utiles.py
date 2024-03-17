@@ -63,7 +63,7 @@ def reproj_match(infile, match, outfile):
                 
 
 
-def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, target_resolution=(0.01, 0.01), resampling_method=gdal.GRA_Bilinear):
+def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, resampling_method=gdal.GRA_Bilinear):
     """
     Aligns and resamples an input raster to match the spatial characteristics of a reference raster.
 
@@ -71,16 +71,25 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     - input_raster_path (str): Path to the input raster that needs alignment and resampling.
     - reference_raster_path (str): Path to the reference raster used for alignment and resampling.
     - output_path (str): Path to save the aligned and resampled raster.
-    - target_resolution (tuple): Target spatial resolution in the form (xRes, yRes). Default is (0.01, 0.01).
     - resampling_method (int): Resampling method (GDAL constant). Default is gdal.GRA_Bilinear.
 
     Returns:
     - None
+    
+    Example usage:
+    input_raster_path = "input_raster.tif"
+    reference_raster_path = "reference_raster.tif"
+    output_path = "output_raster.tif"
+    
+    align_and_resample_raster(input_raster_path, reference_raster_path, output_path)
+    
     """
 
     # Open the reference raster to get its spatial information
     reference_ds = gdal.Open(reference_raster_path)
     target_crs = reference_ds.GetProjectionRef()
+    target_resolution = (reference_ds.GetGeoTransform()[1], reference_ds.GetGeoTransform()[5])
+    print("Reference raster resolution (xRes, yRes):", target_resolution)
 
     # Perform the alignment and resampling
     gdal.Warp(output_path, input_raster_path, format="GTiff", dstSRS=target_crs,
@@ -90,6 +99,7 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     # Close the datasets
     reference_ds = None
 
+    
 def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
     with rasterio.open(binary_mask_path) as src:
         mask = src.read(1)
@@ -233,3 +243,36 @@ def gapfilling_gp(
 
     return dataset, gp.kernel_
 # end of gap filling----------------
+
+# functions for calculate stats table---------
+
+# Function to calculate summary statistics
+def calculate_summary(df):
+    # Calculate average SM_Value
+    ave_sm = df['SM_Value'].mean()
+
+    # Calculate percentage of NaN values in SM_Value
+    na_percent = df['SM_Value'].isna().mean() * 100
+
+    # Calculate weighted average SM_Value
+    weighted_ave_sm = (df['SM_Value'] * df['Mask_Value']).sum() / df['Mask_Value'].sum()
+
+    # Calculate weighted percentage of NaN values in SM_Value
+    weighted_na_percent = (df['SM_Value'].isna() * df['Mask_Value']).sum() / df['Mask_Value'].sum() * 100
+
+    # Get available weighted sm data
+    weighted_available_percent = 100 - weighted_na_percent
+
+    # Create summary DataFrame
+    summary_df = pd.DataFrame({
+        'Country': [df['Country'].iloc[0]],
+        'Date': [df['Date'].iloc[0]],
+        'ave_sm': [ave_sm],
+        'na_percent': [na_percent],
+        'weighted_ave_sm': [weighted_ave_sm],
+        'weighted_na_percent': [weighted_na_percent],
+        'weighted_available_percent': [weighted_available_percent]
+        
+    })
+
+    return summary_df

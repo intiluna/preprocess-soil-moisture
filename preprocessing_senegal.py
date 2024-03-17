@@ -16,6 +16,9 @@ import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
 from statsmodels.tsa.seasonal import seasonal_decompose
+#stats
+from datetime import datetime
+
 
 
 print("Starting preprocessing...step 1")
@@ -63,77 +66,28 @@ country_x = countries.loc[countries['adm0_name'] == country_target]
 print(country_x.head())
 
 # 1.0 Crop and clip crop_mask based on country_target
-if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_cropped.tif").exists():
+
+clipped_mask_path = path_raster_temp/(f"crop_mask_{country_target_lower}_clipped.tif")
+crop_mask_cropped_path = path_raster_temp/(f"crop_mask_{country_target_lower}_cropped.tif")
+
+if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target_lower}_cropped.tif").exists():
     print("Start crop and clip...")
     crop_mask_cropped = crop_mask.rio.clip_box(*country_x.total_bounds)
-    crop_mask_cropped.rio.to_raster(path_raster_temp/(f"crop_mask_{country_target}_cropped.tif"))
+    crop_mask_cropped.rio.to_raster(crop_mask_cropped_path)
     print("done cropped")
-if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_clipped.tif").exists():
+if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target_lower}_clipped.tif").exists():
     crop_mask_clipped = crop_mask_cropped.rio.clip(country_x['geometry'])
-    crop_mask_clipped.rio.to_raster(path_raster_temp/(f"crop_mask_{country_target}_clipped.tif"))
+    crop_mask_clipped.rio.to_raster(clipped_mask_path)
     print("Finish crop and clip...")
 
 # binary crop mask
-binary_mask_path = path_raster_temp/(f"crop_mask_{country_target}_clipped_binary.tif")
+binary_mask_path = path_raster_temp/(f"crop_mask_{country_target_lower}_clipped_binary.tif")
 
-if not skip_if_exist or not (path_raster_temp / f"crop_mask_{country_target}_clipped_binary.tif").exists():
-    crop_mask_clipped_reclassified = (crop_mask_clipped > 0).astype('uint8')
+if not skip_if_exist or not (binary_mask_path).exists():
+    crop_mask_clipped_reclassified = (crop_mask_clipped > 0).astype('float32') # it was uint8
     crop_mask_clipped_reclassified.rio.to_raster(binary_mask_path)
     print("done binary transformation")
 print("checkpoint after binary transformation...")
-
-# 2.0 pre process: SM -Crop to CM-binary
-## create folfer if not exist
-# cropped_sm_folder = (path_raster_temp / f"cropped_sm_{country_target_lower}")
-
-# if cropped_sm_folder.exists() and cropped_sm_folder.is_dir():
-#     print("cropped sm folder does exists and we skip processing")
-# else:
-#     cropped_sm_folder.mkdir(parents=True, exist_ok=True)
-#     print(f"The folder '{cropped_sm_folder}' has been created.")
-
-#     # Require sm to be cropped (not clipped otherwise it wont cover the whole area
-#     for file in sm_files_sorted:
-    
-#         #out_resample = (resample_sm_folder / f"{country_target}_{file.name}")
-#         start_time = time.strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"starting crop for SM: {file.name} at {start_time}")
-
-        
-#         sm_file = rxr.open_rasterio(file)
-#         sm_cropped = sm_file.rio.clip_box(*country_x.total_bounds)
-#         #sm_clipped = sm_cropped.rio.clip(country_x['geometry'])
-#         sm_cropped.rio.to_raster(cropped_sm_folder/(f"{country_target_lower}_cropped_{file.name}"))
-            
-        
-#         print(f"done crop for {file.name}")
-
-
-# # resample sm to match resolution of crop mask
-# sm_files_cropped = list(cropped_sm_folder.glob("*.tif"))
-# #print(sm_files_clipped[:5])
-# crop_mask_cropped_path = path_raster_temp/(f"crop_mask_{country_target}_cropped.tif")
-
-# resample_sm_folder = (path_raster_temp / f"resample_sm_{country_target_lower}")
-
-# if resample_sm_folder.exists() and resample_sm_folder.is_dir():
-#     print("resample sm folder does  exists")
-# else:
-#     resample_sm_folder.mkdir(parents=True, exist_ok=True)
-#     print(f"The folder '{resample_sm_folder}' has been created.")
-
-#     # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
-#     for file in sm_files_cropped:
-#         out_resample = (resample_sm_folder / f"resampled_{file.name}")
-#         start_time = time.strftime("%Y-%m-%d %H:%M:%S")
-#         print(f"starting resample for SM: {file.name} at {start_time}")
-#         print(f"input file:{file}")
-#         print(f"output file:{out_resample}")
-#         ut.align_and_resample_raster(file, crop_mask_cropped_path, out_resample,target_resolution=(0.004464285715000,0.004464285715000))
-
-#         #ut.reproj_match(infile = file, match= crop_mask,outfile = out_resample)    
-#         print(f"done resample for {file.name}")
-
 
 #2.0 Crop SM to crop mask binary extent
         
@@ -269,7 +223,7 @@ else:
     print(f"Total GP gap fill process took:{total_time}")
 
 
-# Create raster tif files using gap filled pixel stack
+# Create raster tif files using gap filled pixel stack----------------------------------------------------------
 
 # Paths
 gap_filled_stack_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
@@ -306,6 +260,167 @@ else:
     total_time = end_process - start_process
 
     print(f"Total write gap fill tif process took:{total_time}") 
+
+
+# Resample to 500 m ----------------------------------------------------------
+resample_sm_folder = (path_raster_temp / f"resample_gp_sm_{country_target_lower}")
+
+gp_raster_path_list = list(gap_filled_sm_folder.glob("*.tif"))
+gp_raster_path_list_sorted = sorted(gp_raster_path_list, key=get_date_from_path)
+
+if resample_sm_folder.exists() and resample_sm_folder.is_dir():
+    print("resample sm folder does  exists")
+else:
+    resample_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"The folder '{resample_sm_folder}' has been created.")
+
+    start_resample_process = time.time()
+
+    # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
+    for file in gp_raster_path_list_sorted:
+        out_resample = (resample_sm_folder / f"resampled_{file.name}")
+        ut.align_and_resample_raster(file, binary_mask_path, out_resample)
+        print(f"done resample for {file.name}")
+
+    end_resample_process = time.time()
+    total_time = end_resample_process - start_resample_process
+    print(f"Total resample process took:{total_time}")
+
+# Clip resample gap filled SM raster files ----------------------------------------------------------
+    
+clipped_sm_folder=(path_raster_temp / f"clipped_sm_{country_target_lower}")   
+sm_files_resampled = list(resample_sm_folder.glob("*.tif"))
+
+if clipped_sm_folder.exists() and clipped_sm_folder.is_dir():
+    print("resample-crop sm folder does  exists and we skip processing")
+else:
+    clipped_sm_folder.mkdir(parents=True, exist_ok=True)
+    print(f"The folder '{clipped_sm_folder}' has been created.")
+
+    mask_binary = rxr.open_rasterio(binary_mask_path)
+    print(f"mask_binary dimensions: {mask_binary.sizes}")
+
+    start_clip_process = time.time()
+
+    
+    for file in sm_files_resampled:
+        print(f"Processing:{file.name}")
+        out_resample_crop = (clipped_sm_folder / f"cropped_{file.name}")
+        file_sm = rxr.open_rasterio(file)
+        #print(file_sm.sizes)
+        sm_crop = file_sm.rio.clip_box( minx= mask_binary.x.min().item(),
+                                        miny= mask_binary.y.min().item(),
+                                        maxx= mask_binary.x.max().item(),
+                                        maxy= mask_binary.y.max().item()
+                                       )
+        sm_crop.rio.to_raster(out_resample_crop)
+        print(f"done resample for {file.name}")
+
+    end_clip_process = time.time()
+    total_time = end_clip_process - start_clip_process
+    print(f"Total clip process took:{total_time}")
+
+
+# Create table Stats -----------------------------------------------------------------------------
+
+#output path
+pixel_stat_table_path = pixels_sm_folder/(f"{country_target_lower}_pixel_stat_table.csv")
+#input
+clipped_raster_path_list = list(clipped_sm_folder.glob("*.tif"))
+clipped_raster_path_list_sorted = sorted(clipped_raster_path_list, key=get_date_from_path)
+
+if pixel_stat_table_path.exists():
+    print("Pixel stats does  exists and we skip processing")
+else:
+    print("Pixel stats starting")
+    
+    start_pixel_stat_process = time.time()
+
+    #input-mask
+    #clipped_mask_path
+    crop_mask = rxr.open_rasterio(clipped_mask_path)
+
+    # get mask
+    mask = crop_mask[0, :, :] > 0
+
+    # Get the indices where the mask is True
+    y_indices, x_indices = np.where(mask)
+
+    # Get coordinates of pixels masked
+    latitudes = crop_mask.y[y_indices]
+    longitudes = crop_mask.x[x_indices]
+
+    # Transform xarray to numpy array
+    crop_mask_arr = crop_mask.values
+
+    # Mask mask and get values
+    crop_mask_values = crop_mask_arr[0, mask]
+
+    # Initialize an empty list to store DataFrames
+    dfs = []
+
+    # Loop through the raster files
+    for i,raster_file in enumerate(clipped_raster_path_list_sorted):
+        # Assuming raster_file.stem[-8:] is a string in the format YYYYMMDD
+        date_str = raster_file.stem[-8:]
+        date = datetime.strptime(date_str, '%Y%m%d').date()
+        print(date)
+
+        # Mask sm and get values
+        sm = rxr.open_rasterio(raster_file)
+        sm_arr = sm.values
+        sm_values = sm_arr[0, mask]
+
+        # Stack the arrays column-wise
+        stacked_data = np.column_stack((x_indices, y_indices, latitudes.values, longitudes.values, sm_values, crop_mask_values))
+
+        # Convert the stacked data to a DataFrame
+        df = pd.DataFrame(stacked_data, columns=['x_index', 'y_index', 'Latitude', 'Longitude', 'SM_Value', 'Mask_Value'])
+
+        # Add the "Country" column
+        df.insert(0, 'Country', country_target)
+
+        # Add the "Date" column
+        df.insert(1, 'Date', date)
+
+        # Replace -9999.0 values with NaN
+        df.replace(-9999.0, np.nan, inplace=True)
+
+        # Append the current DataFrame to the list of DataFrames
+        summary_df = ut.calculate_summary(df)
+        
+        dfs.append(summary_df)
+        print(f"Extracted pixel data for file:{i}")
+    
+    # Concatenate all DataFrames in the list along the rows
+    df_combined = pd.concat(dfs, ignore_index=True)
+
+    # reorder columns
+    new_order = ['Country', 'Date', 'ave_sm', 'weighted_ave_sm', 'na_percent', 'weighted_na_percent','weighted_available_percent']
+    df_combined = df_combined.reindex(columns=new_order)
+
+    df_combined['Date'] = pd.to_datetime(df_combined['Date'])
+
+    # Display the combined DataFrame
+    print(df_combined.shape)
+    print(df_combined.head())
+    print(df_combined.tail())
+
+    # Save the combined DataFrame as a CSV file  
+    df_combined.to_csv(pixel_stat_table_path, index=False)
+
+    end_pixel_stat_process = time.time()
+    total_time = end_pixel_stat_process - start_pixel_stat_process
+    print(f"Total pixel stat process took:{total_time}")
+
+
+
+
+
+
+
+
+
 
 
 
