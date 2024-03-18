@@ -63,7 +63,7 @@ def reproj_match(infile, match, outfile):
                 
 
 
-def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, resampling_method=gdal.GRA_Bilinear):
+def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, resampling_method=gdal.GRA_NearestNeighbour):
     """
     Aligns and resamples an input raster to match the spatial characteristics of a reference raster.
 
@@ -71,7 +71,7 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     - input_raster_path (str): Path to the input raster that needs alignment and resampling.
     - reference_raster_path (str): Path to the reference raster used for alignment and resampling.
     - output_path (str): Path to save the aligned and resampled raster.
-    - resampling_method (int): Resampling method (GDAL constant). Default is gdal.GRA_Bilinear.
+    - resampling_method (int): Resampling method (GDAL constant). Default is gdal.GRA_NearestNeighbour but other methods are available like gdal.GRA_Bilinear.
 
     Returns:
     - None
