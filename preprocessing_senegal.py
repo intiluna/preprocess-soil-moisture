@@ -413,6 +413,14 @@ else:
     total_time = end_pixel_stat_process - start_pixel_stat_process
     print(f"Total pixel stat process took:{total_time}")
 
+# Cleaning --------------------------------------------------------------------------------------------
+# Leave clipped sm_folder and pixel sm folder
+
+
+# Example usage
+delete_folders_list = [cropped_sm_folder, resample_sm_folder, gap_filled_sm_folder]
+ut.delete_folders(delete_folders_list)    
+    
 
 
 

@@ -4,6 +4,7 @@ from osgeo import gdal
 import numpy as np
 import time
 import pandas as pd
+import shutil
 #gap fill
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -276,3 +277,13 @@ def calculate_summary(df):
     })
 
     return summary_df
+
+def delete_folders(paths):
+    for path in paths:
+        # Check if the path exists
+        if path.exists():
+            # Use shutil.rmtree() to delete the folder and its contents recursively
+            shutil.rmtree(path)
+            print(f"Folder '{path}' and its contents have been deleted successfully.")
+        else:
+            print(f"The folder '{path}' does not exist.")
