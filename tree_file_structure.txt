@@ -1,0 +1,20 @@
+.
+├── preprocessing_senegal.py
+├── __pycache__
+│   └── utiles.cpython-312.pyc
+├── raster_tmp
+│   ├── clipped_sm_senegal
+│   │   ├── cropped_resampled_gp_cropped_sm_19781101.tif
+│   ... ... 
+│   │   └── cropped_resampled_gp_cropped_sm_20230721.tif
+│   ├── crop_mask_senegal_clipped_binary.tif
+│   ├── crop_mask_senegal_clipped.tif
+│   ├── crop_mask_senegal_cropped.tif
+│   └── pixels_sm_senegal
+│       ├── senegal_gap_filled_pixel_stack.npy
+│       ├── senegal_original_pixel_stack.npy
+│       └── senegal_pixel_stat_table.csv
+├── testing.ipynb
+├── utiles.py
+
+

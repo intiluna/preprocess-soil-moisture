@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="senegal_no_data_locations__senegal" id="senegal_no_data_locations__senegal">
+	<SimpleField name="fid" type="float"></SimpleField>
+</Schema>
+<Folder><name>senegal_no_data_locations__senegal</name>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">1</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-13.6030773005086,16.1065203608667</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">2</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-14.6296822036535,16.6023238652265</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">3</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-15.9129383325847,16.3748375514614</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">4</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-15.8837734205636,16.1123533432709</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">5</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.1462576287541,16.1473512376963</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">6</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.1579235935625,16.3748375514614</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">7</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.3679109601149,16.1240193080794</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">8</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-17.0737018310271,14.8990930031905</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">9</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-17.0766183222292,14.6716066894254</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">10</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-17.2428583207498,14.7707673902974</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">11</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.7237228867731,14.1728866938635</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">12</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.5837313090715,13.9191519592794</coordinates></Point>
+  </Placemark>
+  <Placemark>
+	<ExtendedData><SchemaData schemaUrl="#senegal_no_data_locations__senegal">
+		<SimpleData name="fid">13</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-16.5399839410398,13.7383295047482</coordinates></Point>
+  </Placemark>
+</Folder>
+</Document></kml>

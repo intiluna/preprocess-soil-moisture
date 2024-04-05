@@ -4,6 +4,7 @@ from osgeo import gdal
 import numpy as np
 import time
 import pandas as pd
+import shutil
 #gap fill
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -63,7 +64,7 @@ def reproj_match(infile, match, outfile):
                 
 
 
-def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, target_resolution=(0.01, 0.01), resampling_method=gdal.GRA_Bilinear):
+def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, resampling_method=gdal.GRA_NearestNeighbour):
     """
     Aligns and resamples an input raster to match the spatial characteristics of a reference raster.
 
@@ -71,16 +72,25 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     - input_raster_path (str): Path to the input raster that needs alignment and resampling.
     - reference_raster_path (str): Path to the reference raster used for alignment and resampling.
     - output_path (str): Path to save the aligned and resampled raster.
-    - target_resolution (tuple): Target spatial resolution in the form (xRes, yRes). Default is (0.01, 0.01).
-    - resampling_method (int): Resampling method (GDAL constant). Default is gdal.GRA_Bilinear.
+    - resampling_method (int): Resampling method (GDAL constant). Default is gdal.GRA_NearestNeighbour but other methods are available like gdal.GRA_Bilinear.
 
     Returns:
     - None
+    
+    Example usage:
+    input_raster_path = "input_raster.tif"
+    reference_raster_path = "reference_raster.tif"
+    output_path = "output_raster.tif"
+    
+    align_and_resample_raster(input_raster_path, reference_raster_path, output_path)
+    
     """
 
     # Open the reference raster to get its spatial information
     reference_ds = gdal.Open(reference_raster_path)
     target_crs = reference_ds.GetProjectionRef()
+    target_resolution = (reference_ds.GetGeoTransform()[1], reference_ds.GetGeoTransform()[5])
+    print("Reference raster resolution (xRes, yRes):", target_resolution)
 
     # Perform the alignment and resampling
     gdal.Warp(output_path, input_raster_path, format="GTiff", dstSRS=target_crs,
@@ -90,6 +100,7 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     # Close the datasets
     reference_ds = None
 
+    
 def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
     with rasterio.open(binary_mask_path) as src:
         mask = src.read(1)
@@ -118,21 +129,47 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
 
     return stack
 
+def extract_all_pixels(raster_path_list,stack_path):
+    initial_process_time = time.time()
+
+    stack = None
+    for i, tiff_path in enumerate(raster_path_list):
+        
+        start_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"starting extraction from for SM: {tiff_path} at {start_time}")
+        
+        with rasterio.open(tiff_path) as src:
+            array = src.read(1)
+            #extract = array[mask==1]  # [3 4]
+            if stack is None:
+                stack = np.empty((len(raster_path_list), array.shape[0], array.shape[1]))
+            stack[i, :, :] = array
+        print ("done file extraction")
+    
+    end_process_time = time.time()
+    total_time = end_process_time - initial_process_time
+    print(f"complete extraction lasted: {total_time}")
+    np.save(stack_path, stack)
+
+    return stack
+
 # functions for gap filling---------
 # Apply gap fill as a function
-def get_data(dataset: pd.DataFrame) -> pd.DataFrame:
-    X = np.arange(0, dataset.shape[0]).reshape(-1, 1)
-    y = dataset["y"].values
+def get_data(time_serie: np.ndarray) -> pd.DataFrame:
+    df = pd.DataFrame()
+    df["y"]=time_serie.ravel()
+    X = np.arange(0, df.shape[0]).reshape(-1, 1)
+    y = df["y"].values
 
     # Fill missing values with NaN
     #y[y == -9999] = np.nan
 
     # Simple linear interpolation to fill missing values
-    dataset = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
+    df = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
     y_hat_01 = pd.Series(y).interpolate(method='linear').values
-    dataset['y_hat_01'] = dataset['y'].interpolate(method='linear')
+    df['y_hat_01'] = df['y'].interpolate(method='linear')
 
-    return dataset
+    return df
 
 def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.DataFrame:
     ts_decomposition = seasonal_decompose(
@@ -207,3 +244,51 @@ def gapfilling_gp(
 
     return dataset, gp.kernel_
 # end of gap filling----------------
+
+def calculate_nan_percentage(arr):
+    nan_percentage = (np.isnan(arr).sum() / len(arr)) * 100
+    return nan_percentage
+
+
+# functions for calculate stats table---------
+
+# Function to calculate summary statistics
+def calculate_summary(df):
+    # Calculate average SM_Value
+    ave_sm = df['SM_Value'].mean()
+
+    # Calculate percentage of NaN values in SM_Value
+    na_percent = df['SM_Value'].isna().mean() * 100
+
+    # Calculate weighted average SM_Value
+    weighted_ave_sm = (df['SM_Value'] * df['Mask_Value']).sum() / df['Mask_Value'].sum()
+
+    # Calculate weighted percentage of NaN values in SM_Value
+    weighted_na_percent = (df['SM_Value'].isna() * df['Mask_Value']).sum() / df['Mask_Value'].sum() * 100
+
+    # Get available weighted sm data
+    weighted_available_percent = 100 - weighted_na_percent
+
+    # Create summary DataFrame
+    summary_df = pd.DataFrame({
+        'Country': [df['Country'].iloc[0]],
+        'Date': [df['Date'].iloc[0]],
+        'ave_sm': [ave_sm],
+        'na_percent': [na_percent],
+        'weighted_ave_sm': [weighted_ave_sm],
+        'weighted_na_percent': [weighted_na_percent],
+        'weighted_available_percent': [weighted_available_percent]
+        
+    })
+
+    return summary_df
+
+def delete_folders(paths):
+    for path in paths:
+        # Check if the path exists
+        if path.exists():
+            # Use shutil.rmtree() to delete the folder and its contents recursively
+            shutil.rmtree(path)
+            print(f"Folder '{path}' and its contents have been deleted successfully.")
+        else:
+            print(f"The folder '{path}' does not exist.")
