@@ -245,6 +245,11 @@ def gapfilling_gp(
     return dataset, gp.kernel_
 # end of gap filling----------------
 
+def calculate_nan_percentage(arr):
+    nan_percentage = (np.isnan(arr).sum() / len(arr)) * 100
+    return nan_percentage
+
+
 # functions for calculate stats table---------
 
 # Function to calculate summary statistics

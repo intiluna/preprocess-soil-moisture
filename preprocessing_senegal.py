@@ -103,7 +103,7 @@ else:
     mask_binary = rxr.open_rasterio(binary_mask_path)
     print(f"mask_binary dimensions: {mask_binary.sizes}")
 
-    # Require sm to be cropped (not clipped otherwise it wont cover the whole area
+    # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
     for file in sm_files_sorted:
 
         out_resample_crop = (cropped_sm_folder / f"cropped_{file.name}")
@@ -115,7 +115,7 @@ else:
                                         maxy= mask_binary.y.max().item()
                                        )
         sm_crop.rio.to_raster(out_resample_crop)
-        print(f"done resample for {file.name}")
+        print(f"done crop process for {file.name}")
 
 
 
@@ -142,26 +142,30 @@ else:
     
     stack = ut.extract_all_pixels(raster_path_list_sorted,stack_path) 
     
-    
+print("Done extracting pixels")    
+
+# v3 gap fill at pixel level ---------------------------------------------------------
 
 # gap fill at pixel level ----------------------------------------------------------
 
 stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
 if stack_filled_path.exists():
-    print("gap filled array exists and we skip processing")
+    print("Gap filled array exists and we skip processing")
 else:
-    print("gap filled array starting")
+    print("Gap filling processing starting............")
 
-    
+    na_pipeline_activate = "yes" # or "no" to run skip pixels with no initial values
+
     pixel_data = np.load(stack_path)
     pixel_data[pixel_data == -9999.0] = np.nan
 
     px = pixel_data.shape[1]
     py = pixel_data.shape[2]
 
-    #tsf = pixel_data[:].copy()
-    tsf=np.ones(pixel_data.shape)
-    pixel_no_gap_filled=[]
+    print(f"pixel_data shape:{pixel_data.shape}")
+
+    tsf = np.full(pixel_data.shape, np.nan)
+    logs_gap_filling=[]
 
     gp_process_start = time.time()
 
@@ -173,54 +177,175 @@ else:
             print(f"pixel_x:{x},pixel_y:{y}")
             
             time_serie = pixel_data[:, x, y]
+            na_perc_start = ut.calculate_nan_percentage(time_serie)
+            print(f"Start_Na%: {na_perc_start}")
             tidy_dataset = ut.get_data(time_serie)
+            na_perc_end = ut.calculate_nan_percentage(tidy_dataset['y_hat_01'])
+            print(f"End_Na%: {na_perc_end}")
 
-            #print(tidy_dataset.head())
-            
-            if tidy_dataset['y_hat_01'].isnull().any():
-                print(f"Skipping decomposition for pixel:{(x,y)} with missing values.")
-                pixel_no_gap_filled.append((x,y))
-                continue  # Skip to the next iteration
+            if na_pipeline_activate == "no" or na_perc_end > 70:            
+                na_pipeline = "no"
+                if tidy_dataset['y_hat_01'].isnull().any():
+                    print(f"Skipping decomposition for pixel:{(x,y)} with more than 70% missing values.")
+                    #pixel_no_gap_filled.append((x,y))
+                    continue  # Skip to the next iteration
+            else:
+                #running na_pipeline
+                na_pipeline = "no"
+                if np.isnan(tidy_dataset["y"].iloc[0]) == True:
+                    print("nan values found in first years but we will try to fill as much data gaps")
+                    na_pipeline = "yes"
+                    print(f"na_pipeline running:{na_pipeline}")
+                    tidy_dataset_base = tidy_dataset.copy()
+                    #print(tidy_dataset_base.shape)
+                    tidy_dataset = tidy_dataset.dropna(subset=["y_hat_01"])
+                    #print(tidy_dataset.shape)
+                    start_replace=tidy_dataset["X"].iloc[0]
+                    print(f"Start_replace:{start_replace}")
+
+
             # get decomposition
+
             ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
-        
+                
+            
+            if na_pipeline == "yes":
+                print("reset index")
+                decomposed_dataset.reset_index(drop=True,inplace=True)
+                decomposed_dataset['X'] = decomposed_dataset.index
+                # print("decomposed dataset:")
+                # print(decomposed_dataset.head())
+                # print(f"decomposed dataset dimensions: {decomposed_dataset.shape}")
+            else:          
+                print(f"na_pipeline running:{na_pipeline}")
+                # print("decomposed dataset:")
+                # print(decomposed_dataset.head())
+                # print(f"decomposed dataset dimensions: {decomposed_dataset.shape}")
+                
+      
             # GP estimates
             kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
             #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
             #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
-            
+
+       
             gapfilled_dataset, kernel = ut.gapfilling_gp(
-                                                    dataset=decomposed_dataset,
-                                                    n_restarts_optimizer=0,
-                                                    kernel=kernel1
-                                                    )
-        
-            #original = gapfilled_dataset["y"]
-            #filled_01 = gapfilled_dataset["y_hat_01"]
-            filled_02 = gapfilled_dataset["y_hat_02"] 
-            #flag = gapfilled_dataset["flag"]
+                                                      dataset=decomposed_dataset,
+                                                      n_restarts_optimizer=0,
+                                                      kernel=kernel1
+                                                     )
+
+            if na_pipeline == "yes":
+                print("reconstruct time series with original length")
+                filled_02 = tidy_dataset_base["y_hat_01"].copy()
+                print(len(filled_02))
+                new_values = gapfilled_dataset["y_hat_02"]
+                print(len(new_values))
+                filled_02[start_replace:] = new_values
+            else:   
+                filled_02 = gapfilled_dataset["y_hat_02"]
+                                
             
             #replace values in tsf (time series filled)
             #tsf[:, x, y] = filled_02.values.reshape(-1, 1)
             tsf[:, x, y] = filled_02.values.reshape(-1)
 
-
-
-    # save no-gaps pixels array
-    stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
-    pixel_data[pixel_data == 1.0] = -9999.0
-    np.save(stack_filled_path, tsf)
-
-        # Save pixel_no_gap_filled as a CSV file
-    df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
-    #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
-    df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_gapfill.csv"), index=False)
+            logs_gap_filling.append({'x': x, 'y': y, 'na_perc_start': round(na_perc_start, 2), 'na_perc_end': round(na_perc_end, 2), 'na_pipeline': na_pipeline})
+            
+            # save no-gaps pixels array
+            stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+            pixel_data[pixel_data == np.nan] = -9999.0
+            np.save(stack_filled_path, tsf)
+            
+            # logs_gap_filling as a CSV file
+            df_logs_gap_filling = pd.DataFrame(logs_gap_filling)
+            df_logs_gap_filling.to_csv(pixels_sm_folder/(f"{country_target_lower}_logs_gap_filling.csv"), index=False)
 
 
     gp_process_end = time.time()
     total_time = gp_process_end - gp_process_start
 
     print(f"Total GP gap fill process took:{total_time}")
+
+
+
+# # gap fill at pixel level ----------------------------------------------------------
+
+# stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+# if stack_filled_path.exists():
+#     print("gap filled array exists and we skip processing")
+# else:
+#     print("gap filled array starting")
+
+    
+#     pixel_data = np.load(stack_path)
+#     pixel_data[pixel_data == -9999.0] = np.nan
+
+#     px = pixel_data.shape[1]
+#     py = pixel_data.shape[2]
+
+#     #tsf = pixel_data[:].copy()
+#     tsf=np.ones(pixel_data.shape)
+#     pixel_no_gap_filled=[]
+
+#     gp_process_start = time.time()
+
+
+#     for x in range(px):
+        
+#         for y in range(py):
+#         #for y in range(3):#
+#             print(f"pixel_x:{x},pixel_y:{y}")
+            
+#             time_serie = pixel_data[:, x, y]
+#             tidy_dataset = ut.get_data(time_serie)
+
+#             #print(tidy_dataset.head())
+            
+#             if tidy_dataset['y_hat_01'].isnull().any():
+#                 print(f"Skipping decomposition for pixel:{(x,y)} with missing values.")
+#                 pixel_no_gap_filled.append((x,y))
+#                 continue  # Skip to the next iteration
+#             # get decomposition
+#             ts_decomposition, decomposed_dataset = ut.decadal_decomposition(tidy_dataset, period=365//10)
+        
+#             # GP estimates
+#             kernel1 = RBF(1.0, (1e-2, 1e2)) # seed the kernel
+#             #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) # seed the kernel    
+#             #kernel1 = C(1.0, (1e-3, 1e3)) * RBF(1.0, (1e-2, 1e2)) + WhiteKernel(1e-1) + ExpSineSquared(1.0, 5.0, (1e-2, 1e2))
+            
+#             gapfilled_dataset, kernel = ut.gapfilling_gp(
+#                                                     dataset=decomposed_dataset,
+#                                                     n_restarts_optimizer=0,
+#                                                     kernel=kernel1
+#                                                     )
+        
+#             #original = gapfilled_dataset["y"]
+#             #filled_01 = gapfilled_dataset["y_hat_01"]
+#             filled_02 = gapfilled_dataset["y_hat_02"] 
+#             #flag = gapfilled_dataset["flag"]
+            
+#             #replace values in tsf (time series filled)
+#             #tsf[:, x, y] = filled_02.values.reshape(-1, 1)
+#             tsf[:, x, y] = filled_02.values.reshape(-1)
+
+
+
+#     # save no-gaps pixels array
+#     stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
+#     pixel_data[pixel_data == 1.0] = -9999.0
+#     np.save(stack_filled_path, tsf)
+
+#         # Save pixel_no_gap_filled as a CSV file
+#     df_pixel_no_gap_filled = pd.DataFrame({'PixelNoGapFilled': pixel_no_gap_filled})
+#     #df_pixel_no_gap_filled.to_csv('pixel_no_gap_filled.csv', index=False)
+#     df_pixel_no_gap_filled.to_csv(pixels_sm_folder/(f"{country_target_lower}_pixel_gapfill.csv"), index=False)
+
+
+#     gp_process_end = time.time()
+#     total_time = gp_process_end - gp_process_start
+
+#     print(f"Total GP gap fill process took:{total_time}")
 
 
 # Create raster tif files using gap filled pixel stack----------------------------------------------------------
@@ -418,20 +543,9 @@ else:
 
 
 # Example usage
-delete_folders_list = [cropped_sm_folder, resample_sm_folder, gap_filled_sm_folder]
-ut.delete_folders(delete_folders_list)    
+#delete_folders_list = [cropped_sm_folder, resample_sm_folder, gap_filled_sm_folder]
+#ut.delete_folders(delete_folders_list)    
     
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Wait for 60 seconds
