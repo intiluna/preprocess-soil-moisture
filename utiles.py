@@ -9,7 +9,7 @@ import shutil
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
-from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.seasonal import seasonal_decompose, STL
 
 
 def test_function(a):
@@ -171,6 +171,40 @@ def get_data(time_serie: np.ndarray) -> pd.DataFrame:
 
     return df
 
+def get_data_v2(time_series: np.ndarray, start_date: str, freq: str, fulldate_start: str, fulldate_end: str, fillmethod: str) -> pd.DataFrame:
+    # 1. Define the date range for scaling
+    full_dates = pd.Series(pd.date_range(start=fulldate_start, end=fulldate_end))
+    
+    # 2. Define the time series based on start date, frequency, and length
+    date_time_series = pd.date_range(start=start_date, freq=freq, periods=len(time_series))
+    
+    date_min = full_dates.min()
+    date_max = full_dates.max()
+    
+    # Transform dates to numbers and scale them
+    X_numeric = (date_time_series - date_min).days
+    date_numeric_max = (date_max - date_min).days
+    X_scaled = X_numeric / date_numeric_max
+
+    X = np.arange(0, len(time_series))
+    y = time_series.ravel()
+    
+    # Create DataFrame
+    df = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
+    df['X_date'] = date_time_series
+    df['X_scaled'] = X_scaled
+    
+    # Manage missing values according to the fillmethod
+    if fillmethod == "interpolate":
+        df['y_hat_01'] = df['y'].interpolate(method='linear')
+    elif fillmethod == "median":
+        y_median = np.nanmedian(y)
+        df['y_hat_01'] = df['y'].fillna(y_median)
+    else:
+        raise ValueError("fillmethod is not valid.Use 'interpolate' o 'median'.")
+    
+    return df
+
 def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.DataFrame:
     ts_decomposition = seasonal_decompose(
         dataset['y_hat_01'],
@@ -187,6 +221,38 @@ def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.Data
 
     return ts_decomposition, dataset
 
+def decadal_decomposition_v2(dataset: pd.DataFrame, period: int=365//10, seasonal=31, trend=51, improved="all") -> pd.DataFrame:
+    # Decomposition using STL
+    stl_result = STL(dataset['y_hat_01'], period=period, seasonal=seasonal, trend=trend).fit()
+
+    # Add the components to the dataset
+    dataset["residual"] = stl_result.resid
+    dataset["trend"] = stl_result.trend
+    dataset["seasonal"] = stl_result.seasonal
+    dataset["seasonal_improved"] = stl_result.seasonal.copy()  
+
+    # Calculate seasonal average
+    seasonal_avg = stl_result.seasonal.groupby(stl_result.seasonal.index % period).mean()
+
+    # Determine first NAN (flag=False)
+    first_false_index = dataset.index[~dataset['flag']].min() if (~dataset['flag']).any() else len(dataset)
+
+    if improved == "all":
+        # Replace all gaps with the seasonal average
+        nan_indices = dataset.index[dataset['flag']]
+    elif improved == "initial":
+        # Replace only the initial gaps with the seasonal average
+        nan_indices = dataset.index[dataset['flag'] & (dataset.index < first_false_index)]
+    else:
+        raise ValueError("Argument 'improved' must be 'all' or 'initial'")
+
+    for idx in nan_indices:
+        # Calculate the seasonal index corresponding to the seasonal cycle
+        seasonal_index = idx % period
+        # Assign the average seasonal value to the missing value
+        dataset.at[idx, 'seasonal_improved'] = seasonal_avg[seasonal_index]
+
+    return stl_result, dataset
 
 def gapfilling_gp(
     dataset: pd.DataFrame,
@@ -237,6 +303,60 @@ def gapfilling_gp(
     dataset.loc[missing_indices, "y_hat_02"] = y_pred_casted
     
 
+    
+    dataset["sigma"] = 0.0000
+    #dataset["sigma"][missing_indices] = sigma
+    dataset.loc[missing_indices, "sigma"] = sigma
+
+    return dataset, gp.kernel_
+# end of gap filling----------------
+
+# version de gapfilling_gp modificada
+def gapfilling_gp_v2(
+    dataset: pd.DataFrame,
+    n_restarts_optimizer: int=5,
+    kernel: RBF = C(1.0, (1e-3, 1e3))
+) -> pd.DataFrame:
+    # Get the missing values
+    missing_indices = np.where(dataset["flag"])[0] # flag==True
+    
+    # Obtain the residuals without the missing values
+    X = np.delete(dataset["X"].values, missing_indices).reshape(-1, 1)
+    y = np.delete(dataset["residual"].values, missing_indices)
+    ynorm = (y - np.mean(y)) / np.std(y) # to make the GP more stable
+    
+
+    # Fit the GP
+    gp = GaussianProcessRegressor(kernel=kernel, alpha=0.1, n_restarts_optimizer=n_restarts_optimizer,optimizer="fmin_l_bfgs_b", random_state=42)
+    
+    gp.fit(X, ynorm)
+
+    # Predict missing values
+    X_pred = dataset["X_scaled"][missing_indices].values.reshape(-1, 1) # X donde estan gaps
+    y_pred, sigma = gp.predict(X_pred,return_std=True)
+
+    # Transform the predicted values back to the original scale
+    y_pred = y_pred * np.std(y) + np.mean(y)
+    sigma = sigma * np.std(y)
+
+    # Store predicted residuals
+    dataset["residual_predicted"] = dataset["residual"].copy()
+    dataset.loc[missing_indices, "residual_predicted"] = y_pred
+
+    # Transform the residuals to real values
+    y_pred = (
+        y_pred + 
+        dataset["seasonal_improved"].values[missing_indices] +
+        dataset["trend"].values[missing_indices]
+    )
+    
+    # Copy the original dataset and fill the missing values
+    dataset["y_hat_02"] = dataset["y_hat_01"].copy()
+    
+    # Cast y_pred to the expected dtype
+    y_pred_casted = y_pred.astype(np.float32)
+    
+    dataset.loc[missing_indices, "y_hat_02"] = y_pred_casted
     
     dataset["sigma"] = 0.0000
     #dataset["sigma"][missing_indices] = sigma
