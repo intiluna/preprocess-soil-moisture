@@ -311,7 +311,7 @@ def gapfilling_gp(
     return dataset, gp.kernel_
 # end of gap filling----------------
 
-# version de gapfilling_gp modificada
+# -----------------------------------
 def gapfilling_gp_v2(
     dataset: pd.DataFrame,
     n_restarts_optimizer: int=5,
