@@ -2,23 +2,13 @@ import os
 import datetime as dt
 from pathlib import Path
 import rasterio
-import matplotlib.pyplot as plt
-from rasterio.enums import Resampling
-from rasterio.plot import show
-import xarray as xr
 import rioxarray as rxr
 import geopandas as gpd
-from pyproj import CRS
 import utiles as ut
 import time
-import subprocess
 import numpy as np
-#gap fill
 import pandas as pd
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
-from statsmodels.tsa.seasonal import seasonal_decompose, STL
-#stats
+from sklearn.gaussian_process.kernels import RBF
 from datetime import datetime
 
 
@@ -425,14 +415,6 @@ def main():
     # Example usage
     #delete_folders_list = [cropped_sm_folder, resample_sm_folder, gap_filled_sm_folder]
     #ut.delete_folders(delete_folders_list)
-
-
-
-    # Wait for 60 seconds
-    #time.sleep(60)
-
-    # Shut down the computer
-    #subprocess.run(['sudo', 'shutdown', '-h', 'now'])
 
 
 if __name__ == '__main__':
