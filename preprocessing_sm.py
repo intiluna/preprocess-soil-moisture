@@ -4,12 +4,11 @@ from pathlib import Path
 import rasterio
 import rioxarray as rxr
 import geopandas as gpd
-import utiles as ut
-import time
 import numpy as np
 import pandas as pd
 from sklearn.gaussian_process.kernels import RBF
-from datetime import datetime
+
+import utiles as ut
 
 
 def main():
@@ -159,7 +158,7 @@ def main():
         tsf = np.full(pixel_data.shape, np.nan)
         logs_gap_filling=[]
 
-        gp_process_start = time.time()
+        gp_process_start = dt.datetime.now()
 
 
         for x in range(px):
@@ -210,7 +209,7 @@ def main():
         df_logs_gap_filling.to_csv(pixels_sm_folder/(f"{country_target_lower}_logs_gap_filling.csv"), index=False)
 
 
-        gp_process_end = time.time()
+        gp_process_end = dt.datetime.now()
         total_time = gp_process_end - gp_process_start
 
         print(f"Total GP gap fill process took:{total_time}")
@@ -233,7 +232,7 @@ def main():
         # Load the gap filled pixel stack
         pixel_data = np.load(gap_filled_stack_path)
 
-        start_process = time.time()
+        start_process = dt.datetime.now()
 
         # Open each original raster file and replace the array with the corresponding slice from pixel_data
         for i, original_raster_path in enumerate(raster_path_list_sorted, start=0):
@@ -251,7 +250,7 @@ def main():
                 # Write the replacement data to the new raster file
                 with rasterio.open(output_path, 'w', **src.profile) as dst:
                     dst.write(replacement_data, 1)  # Writing the replacement data to the first band
-        end_process = time.time()
+        end_process = dt.datetime.now()
         total_time = end_process - start_process
 
         print(f"Total write gap fill tif process took:{total_time}")
@@ -269,7 +268,7 @@ def main():
         resample_sm_folder.mkdir(parents=True, exist_ok=True)
         print(f"The folder '{resample_sm_folder}' has been created.")
 
-        start_resample_process = time.time()
+        start_resample_process = dt.datetime.now()
 
         # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
         for file in gp_raster_path_list_sorted:
@@ -277,7 +276,7 @@ def main():
             ut.align_and_resample_raster(file, binary_mask_path, out_resample)
             print(f"done resample for {file.name}")
 
-        end_resample_process = time.time()
+        end_resample_process = dt.datetime.now()
         total_time = end_resample_process - start_resample_process
         print(f"Total resample process took:{total_time}")
 
@@ -295,7 +294,7 @@ def main():
         mask_binary = rxr.open_rasterio(binary_mask_path)
         print(f"mask_binary dimensions: {mask_binary.sizes}")
 
-        start_clip_process = time.time()
+        start_clip_process = dt.datetime.now()
 
 
         for file in sm_files_resampled:
@@ -311,7 +310,7 @@ def main():
             sm_crop.rio.to_raster(out_resample_crop)
             print(f"done resample for {file.name}")
 
-        end_clip_process = time.time()
+        end_clip_process = dt.datetime.now()
         total_time = end_clip_process - start_clip_process
         print(f"Total clip process took:{total_time}")
 
@@ -329,7 +328,7 @@ def main():
     else:
         print("Pixel stats starting")
 
-        start_pixel_stat_process = time.time()
+        start_pixel_stat_process = dt.datetime.now()
 
         #input-mask
         #clipped_mask_path
@@ -358,7 +357,7 @@ def main():
         for i,raster_file in enumerate(clipped_raster_path_list_sorted):
             # Assuming raster_file.stem[-8:] is a string in the format YYYYMMDD
             date_str = raster_file.stem[-8:]
-            date = datetime.strptime(date_str, '%Y%m%d').date()
+            date = dt.strptime(date_str, '%Y%m%d').date()
             print(date)
 
             # Mask sm and get values
@@ -404,7 +403,7 @@ def main():
         # Save the combined DataFrame as a CSV file
         df_combined.to_csv(pixel_stat_table_path, index=False)
 
-        end_pixel_stat_process = time.time()
+        end_pixel_stat_process = dt.datetime.now()
         total_time = end_pixel_stat_process - start_pixel_stat_process
         print(f"Total pixel stat process took:{total_time}")
 
