@@ -3,9 +3,7 @@ import rasterio
 from osgeo import gdal
 import numpy as np
 import time
-import pandas as pd
 import shutil
-#gap fill
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
@@ -14,7 +12,8 @@ from statsmodels.tsa.seasonal import seasonal_decompose, STL
 
 def test_function(a):
     print(a)
- 
+
+
 def reproj_match(infile, match, outfile):
     """Reproject a file to match the shape and projection of existing raster. 
     
@@ -61,7 +60,6 @@ def reproj_match(infile, match, outfile):
                     dst_transform=dst_transform,
                     dst_crs=dst_crs,
                     resampling=Resampling.nearest)
-                
 
 
 def align_and_resample_raster(input_raster_path, reference_raster_path, output_path, resampling_method=gdal.GRA_NearestNeighbour):
@@ -100,7 +98,7 @@ def align_and_resample_raster(input_raster_path, reference_raster_path, output_p
     # Close the datasets
     reference_ds = None
 
-    
+
 def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
     with rasterio.open(binary_mask_path) as src:
         mask = src.read(1)
@@ -129,6 +127,7 @@ def extract_pixels_using_mask(binary_mask_path,raster_path_list,stack_path):
 
     return stack
 
+
 def extract_all_pixels(raster_path_list,stack_path):
     initial_process_time = time.time()
 
@@ -153,6 +152,7 @@ def extract_all_pixels(raster_path_list,stack_path):
 
     return stack
 
+
 # functions for gap filling---------
 # Apply gap fill as a function
 def get_data(time_serie: np.ndarray) -> pd.DataFrame:
@@ -170,6 +170,7 @@ def get_data(time_serie: np.ndarray) -> pd.DataFrame:
     df['y_hat_01'] = df['y'].interpolate(method='linear')
 
     return df
+
 
 def get_data_v2(time_series: np.ndarray, start_date: str, freq: str, fulldate_start: str, fulldate_end: str, fillmethod: str) -> pd.DataFrame:
     # 1. Define the date range for scaling
@@ -205,6 +206,7 @@ def get_data_v2(time_series: np.ndarray, start_date: str, freq: str, fulldate_st
     
     return df
 
+
 def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.DataFrame:
     ts_decomposition = seasonal_decompose(
         dataset['y_hat_01'],
@@ -220,6 +222,7 @@ def decadal_decomposition(dataset: pd.DataFrame, period: int=365//10) -> pd.Data
     dataset["seasonal"] = ts_decomposition.seasonal
 
     return ts_decomposition, dataset
+
 
 def decadal_decomposition_v2(dataset: pd.DataFrame, period: int=365//10, seasonal=31, trend=51, improved="all") -> pd.DataFrame:
     # Decomposition using STL
@@ -253,6 +256,7 @@ def decadal_decomposition_v2(dataset: pd.DataFrame, period: int=365//10, seasona
         dataset.at[idx, 'seasonal_improved'] = seasonal_avg[seasonal_index]
 
     return stl_result, dataset
+
 
 def gapfilling_gp(
     dataset: pd.DataFrame,
@@ -309,9 +313,8 @@ def gapfilling_gp(
     dataset.loc[missing_indices, "sigma"] = sigma
 
     return dataset, gp.kernel_
-# end of gap filling----------------
 
-# -----------------------------------
+
 def gapfilling_gp_v2(
     dataset: pd.DataFrame,
     n_restarts_optimizer: int=5,
@@ -363,7 +366,7 @@ def gapfilling_gp_v2(
     dataset.loc[missing_indices, "sigma"] = sigma
 
     return dataset, gp.kernel_
-# end of gap filling----------------
+
 
 def calculate_nan_percentage(arr):
     nan_percentage = (np.isnan(arr).sum() / len(arr)) * 100
@@ -371,7 +374,6 @@ def calculate_nan_percentage(arr):
 
 
 # functions for calculate stats table---------
-
 # Function to calculate summary statistics
 def calculate_summary(df):
     # Calculate average SM_Value
@@ -402,6 +404,7 @@ def calculate_summary(df):
     })
 
     return summary_df
+
 
 def delete_folders(paths):
     for path in paths:
