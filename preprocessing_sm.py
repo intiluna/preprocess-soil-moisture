@@ -273,7 +273,7 @@ def main():
         # Require sm to be cropped (not clipped otherwise it wont cover the whole area)
         for file in gp_raster_path_list_sorted:
             out_resample = (resample_sm_folder / f"resampled_{file.name}")
-            ut.align_and_resample_raster(file, binary_mask_path, out_resample)
+            ut.align_and_resample_raster(str(file), str(binary_mask_path), str(out_resample))
             print(f"done resample for {file.name}")
 
         end_resample_process = dt.datetime.now()
