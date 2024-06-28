@@ -357,7 +357,7 @@ def main():
         for i,raster_file in enumerate(clipped_raster_path_list_sorted):
             # Assuming raster_file.stem[-8:] is a string in the format YYYYMMDD
             date_str = raster_file.stem[-8:]
-            date = dt.strptime(date_str, '%Y%m%d').date()
+            date = dt.datetime.strptime(date_str, '%Y%m%d').date()
             print(date)
 
             # Mask sm and get values
