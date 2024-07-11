@@ -146,14 +146,11 @@ else:
     
 print("Done extracting pixels")    
 
-# v4 gap fill at pixel level ---------------------------------------------------------
-
 # gap fill at pixel level ----------------------------------------------------------
 
 # get file names and dekads dates
 
 files_names = ut.get_raster_names(path_raster_sm)
-print(files_names[:5])
 dekads_dates = ut.extract_dates_from_raster(files_names)
 
 
@@ -204,7 +201,7 @@ else:
                 print(f"Decomposition done for pixel:{(x,y)} done")
                         
                 # GP estimates
-                kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3))
+                kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
                 n_optimizer = 5
 
                 gapfilled_dataset, kernel = ut.gapfilling_gp_v2(dataset=decomposed_dataset, n_restarts_optimizer=n_optimizer,kernel=kv3)
@@ -214,8 +211,13 @@ else:
                 #replace values in tsf (time series filled)
                 tsf[:, x, y] = filled_02.values.reshape(-1)
 
-                logs_gap_filling.append({'x': x, 'y': y, 'na_perc_start': round(na_perc_start, 2), 'na_perc_end': round(na_perc_end, 2)})
+                logs_gap_filling.append({'x': x, 'y': y,
+                                        'na_perc_start': round(na_perc_start, 2),
+                                        'na_perc_end': round(na_perc_end, 2),
+                                        'kernel_value': kernel})
+                
                 print(f"Gapfilled done for pixel:{(x,y)} done")
+                print(f"Kernel value:{(kernel)}")
             
     # save no-gaps pixels array
     stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")

@@ -408,7 +408,7 @@ def gapfilling_gp_v2(
     missing_indices = np.where(dataset["flag"])[0] # flag==True
     
     # Obtain the residuals without the missing values
-    X = np.delete(dataset["X"].values, missing_indices).reshape(-1, 1)
+    X = np.delete(dataset["X_scaled"].values, missing_indices).reshape(-1, 1)
     y = np.delete(dataset["residual"].values, missing_indices)
     ynorm = (y - np.mean(y)) / np.std(y) # to make the GP more stable
     
