@@ -137,9 +137,11 @@ def main():
 
     print("Done extracting pixels")
 
-    # v4 gap fill at pixel level ---------------------------------------------------------
-
     # gap fill at pixel level ----------------------------------------------------------
+
+    # get file names and dekads dates
+    files_names = ut.get_raster_names(path_raster_sm)
+    dekads_dates = ut.extract_dates_from_raster(files_names)
 
     stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
     if stack_filled_path.exists():
@@ -177,22 +179,22 @@ def main():
 
                 else:
                     def ts_gap_fill(time_serie):
-                        tidy_dataset = ut.get_data_v2(time_serie, start_date="1978-11-01", freq="10D", fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median")
+                        tidy_dataset = ut.get_data_v3(time_serie, fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median", dekads_dates=dekads_dates)
 
                         # get decomposition
                         ts_decomposition, decomposed_dataset = ut.decadal_decomposition_v2(tidy_dataset, period=365//10, seasonal=41,trend=61, improved="initial")
                         print(f"Decomposition done for pixel:{(x,y)} done")
 
                         # GP estimates
-                        kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3))
+                        kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
                         n_optimizer = 5
 
                         gapfilled_dataset, kernel = ut.gapfilling_gp_v2(dataset=decomposed_dataset, n_restarts_optimizer=n_optimizer,kernel=kv3)
 
-                        return gapfilled_dataset["y_hat_02"]
+                        return gapfilled_dataset["y_hat_02"], kernel
 
 
-                    filled_02 = ts_gap_fill(time_serie)
+                    filled_02, kernel = ts_gap_fill(time_serie)
 
                     na_perc_end = ut.calculate_nan_percentage(filled_02)
                     print(f"End_Na%: {na_perc_end}")
@@ -200,8 +202,13 @@ def main():
                     #replace values in tsf (time series filled)
                     tsf[:, x, y] = filled_02.values.reshape(-1)
 
-                    logs_gap_filling.append({'x': x, 'y': y, 'na_perc_start': round(na_perc_start, 2), 'na_perc_end': round(na_perc_end, 2)})
+                    logs_gap_filling.append({'x': x, 'y': y,
+                                             'na_perc_start': round(na_perc_start, 2),
+                                             'na_perc_end': round(na_perc_end, 2),
+                                             'kernel_value': kernel})
+
                     print(f"Gapfilled done for pixel:{(x,y)} done")
+                    print(f"Kernel value:{(kernel)}")
 
         # save no-gaps pixels array
         stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
