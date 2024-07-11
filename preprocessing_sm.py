@@ -150,6 +150,15 @@ print("Done extracting pixels")
 
 # gap fill at pixel level ----------------------------------------------------------
 
+# get file names and dekads dates
+
+files_names = ut.get_raster_names(path_raster_sm)
+print(files_names[:5])
+dekads_dates = ut.extract_dates_from_raster(files_names)
+
+
+
+
 stack_filled_path = pixels_sm_folder/(f"{country_target_lower}_gap_filled_pixel_stack.npy")
 if stack_filled_path.exists():
     print("Gap filled array exists and we skip processing")
@@ -185,7 +194,7 @@ else:
                 continue
             
             else:
-                tidy_dataset = ut.get_data_v2(time_serie, start_date="1978-11-01", freq="10D", fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median")
+                tidy_dataset = ut.get_data_v3(time_serie, fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median", dekads_dates =dekads_dates)
                 na_perc_end = ut.calculate_nan_percentage(tidy_dataset['y_hat_01'])
                 print(f"End_Na%: {na_perc_end}")
                    

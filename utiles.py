@@ -5,6 +5,8 @@ import numpy as np
 import time
 import pandas as pd
 import shutil
+from datetime import datetime
+
 #gap fill
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -154,6 +156,33 @@ def extract_all_pixels(raster_path_list,stack_path):
     return stack
 
 # functions for gap filling---------
+
+# Get dekads_dates from raster files
+
+def get_raster_names(raster_path):
+    sm_files = list(raster_path.glob("*.tif"))
+    sm_files_sorted = sorted(sm_files, key=lambda x: int(x.stem.split('_')[1]))
+    sm_files_names = [file.stem for file in sm_files_sorted]
+    return sm_files_names
+
+
+def extract_dates_from_raster(names):
+    dates = []
+    for name in names:
+        # Extraer la parte de la cadena que corresponde a la fecha
+        date_str = name.split('_')[1]
+        # Convertir la cadena a un objeto datetime
+        date_obj = datetime.strptime(date_str, '%Y%m%d')
+        # Formatear la fecha en el formato YYYY-MM-DD
+        formatted_date = date_obj.strftime('%Y-%m-%d')
+        # Agregar la fecha formateada a la lista de fechas
+        dates.append(formatted_date)
+    dates = pd.Series(dates)
+    return dates
+
+# 
+#extracted_dates_from_raster = extract_dates_from_raster(sm_files_names)
+
 # Apply gap fill as a function
 def get_data(time_serie: np.ndarray) -> pd.DataFrame:
     df = pd.DataFrame()
@@ -183,6 +212,64 @@ def get_data_v2(time_series: np.ndarray, start_date: str, freq: str, fulldate_st
     
     # Transform dates to numbers and scale them
     X_numeric = (date_time_series - date_min).days
+    date_numeric_max = (date_max - date_min).days
+    X_scaled = X_numeric / date_numeric_max
+
+    X = np.arange(0, len(time_series))
+    y = time_series.ravel()
+    
+    # Create DataFrame
+    df = pd.DataFrame({'X': X.ravel(), 'y': y, 'flag': np.isnan(y)})
+    df['X_date'] = date_time_series
+    df['X_scaled'] = X_scaled
+    
+    # Manage missing values according to the fillmethod
+    if fillmethod == "interpolate":
+        df['y_hat_01'] = df['y'].interpolate(method='linear')
+    elif fillmethod == "median":
+        y_median = np.nanmedian(y)
+        df['y_hat_01'] = df['y'].fillna(y_median)
+    else:
+        raise ValueError("fillmethod is not valid.Use 'interpolate' o 'median'.")
+    
+    return df
+
+def get_data_v3(time_series: np.ndarray, fulldate_start: str, fulldate_end: str, fillmethod: str, dekads_dates:pd.Series) -> pd.DataFrame:
+    
+    """
+    Processes a time series as preprocess for time series decomposition. This function scales the dates, fill missing values, 
+    and returning a pandas DataFrame.Allows handling of missing data using linear interpolation or median filling methods.
+
+    Parameters:
+    - time_series (np.ndarray): Input time series data.
+    - fulldate_start (str): The start date for the full date range used for scaling (format: 'YYYY-MM-DD').
+    - fulldate_end (str): The end date for the full date range used for scaling (format: 'YYYY-MM-DD').
+    - fillmethod (str): The method for handling missing values. Valid options are 'interpolate' and 'median'.
+    - dekads_dates (pd.Series): A pandas Series of datetime objects representing the dates corresponding to the time series data.
+
+    Returns:
+    - df (pd.DataFrame): A DataFrame containing the following columns:
+        - X: Index of the time series data.
+        - y: Original time series values.
+        - flag: Boolean flag indicating missing values (True if missing).
+        - X_date: Dates corresponding to the time series data.
+        - X_scaled: Scaled date values.
+        - y_hat_01: Time series values after filling missing values.
+
+    """
+    
+    # 1. Define the date range for scaling
+    full_dates = pd.Series(pd.date_range(start=fulldate_start, end=fulldate_end))
+    
+    # 2. Define the time series based on start date, frequency, and length
+    #date_time_series = pd.date_range(start=start_date, freq=freq, periods=len(time_series))
+    date_time_series = pd.to_datetime(dekads_dates)
+    
+    date_min = full_dates.min()
+    date_max = full_dates.max()
+    
+    # Transform dates to numbers and scale them
+    X_numeric = (date_time_series - date_min).dt.days
     date_numeric_max = (date_max - date_min).days
     X_scaled = X_numeric / date_numeric_max
 
