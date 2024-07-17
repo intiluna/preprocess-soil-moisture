@@ -178,7 +178,7 @@ def main():
                     continue
 
                 else:
-                    def ts_gap_fill(time_serie):
+                    def ts_gap_fill(time_serie, dekads_dates):
                         tidy_dataset = ut.get_data_v3(time_serie, fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median", dekads_dates=dekads_dates)
 
                         # get decomposition
@@ -194,7 +194,7 @@ def main():
                         return gapfilled_dataset["y_hat_02"], kernel
 
 
-                    filled_02, kernel = ts_gap_fill(time_serie)
+                    filled_02, kernel = ts_gap_fill(time_serie, dekads_dates)
 
                     na_perc_end = ut.calculate_nan_percentage(filled_02)
                     print(f"End_Na%: {na_perc_end}")
