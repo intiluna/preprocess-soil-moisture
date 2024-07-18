@@ -178,23 +178,8 @@ def main():
                     continue
 
                 else:
-                    def ts_gap_fill(time_serie, dekads_dates):
-                        tidy_dataset = ut.get_data_v3(time_serie, fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median", dekads_dates=dekads_dates)
-
-                        # get decomposition
-                        ts_decomposition, decomposed_dataset = ut.decadal_decomposition_v2(tidy_dataset, period=365//10, seasonal=41,trend=61, improved="initial")
-                        print(f"Decomposition done for pixel:{(x,y)} done")
-
-                        # GP estimates
-                        kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
-                        n_optimizer = 5
-
-                        gapfilled_dataset, kernel = ut.gapfilling_gp_v2(dataset=decomposed_dataset, n_restarts_optimizer=n_optimizer,kernel=kv3)
-
-                        return gapfilled_dataset["y_hat_02"], kernel
-
-
-                    filled_02, kernel = ts_gap_fill(time_serie, dekads_dates)
+                    filled_02, kernel = ut.ts_gap_fill(time_serie, dekads_dates)
+                    print(f"Decomposition done for pixel:{(x, y)} done")
 
                     na_perc_end = ut.calculate_nan_percentage(filled_02)
                     print(f"End_Na%: {na_perc_end}")

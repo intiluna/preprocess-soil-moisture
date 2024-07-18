@@ -184,6 +184,23 @@ def extract_dates_from_raster(names):
 # 
 #extracted_dates_from_raster = extract_dates_from_raster(sm_files_names)
 
+
+def ts_gap_fill(time_serie, dekads_dates):
+    tidy_dataset = get_data_v3(time_serie, fulldate_start="1978-11-01", fulldate_end="2040-01-01", fillmethod="median",
+                               dekads_dates=dekads_dates)
+    tidy_dataset.drop(columns=['X', 'y', 'X_date'])
+    # get decomposition
+    ts_decomposition, decomposed_dataset = decadal_decomposition_v2(tidy_dataset, period=365 // 10, seasonal=41,
+                                                                    trend=61, improved="initial")
+    decomposed_dataset.drop(columns=['flag', 'seasonal'])
+    # GP estimates
+    kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
+    n_optimizer = 5
+    gapfilled_dataset, kernel = gapfilling_gp_v2(dataset=decomposed_dataset, n_restarts_optimizer=n_optimizer,
+                                                 kernel=kv3)
+    return gapfilled_dataset["y_hat_02"], kernel
+
+
 # Apply gap fill as a function
 def get_data(time_serie: np.ndarray) -> pd.DataFrame:
     df = pd.DataFrame()
