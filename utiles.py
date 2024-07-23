@@ -194,8 +194,9 @@ def ts_gap_fill(time_serie, dekads_dates):
                                                                     trend=61, improved="initial")
     decomposed_dataset.drop(columns=['flag', 'seasonal'])
     # GP estimates
-    kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
-    n_optimizer = 5
+    #kv3 = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
+    kv3 = RBF(length_scale=0.000340, length_scale_bounds="fixed")
+    n_optimizer = 0
     gapfilled_dataset, kernel = gapfilling_gp_v2(dataset=decomposed_dataset, n_restarts_optimizer=n_optimizer,
                                                  kernel=kv3)
     return gapfilled_dataset["y_hat_02"], kernel
